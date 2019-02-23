@@ -1,0 +1,34 @@
+1. Image
+2. Feature matrix
+    - Words (ordered by ids) (N words)
+    - Features (for every word): number of characters, text, width, height, x, y
+    e.g.
+    "Country", 10, 10, 300, 400
+    "Pakistan", 10, 10, 300, 400
+    "India", 10, 10, 300, 400
+3. Adjacency matrices
+    Row sharing matrix
+    Column sharing matrix
+    Cell sharing matrix
+    N*N
+    [
+        1, 0, 1
+        0, 1, 0
+        0 , 0, 1
+    ]
+4. Number of words
+5. Height, width
+
+
+- Assume maximum words could be let's 1024, let's say W_max.
+    Table: 100 words
+    Table: 300 words
+    Table: 450 words
+
+- Assume maximum length of word is 40, let's call it L_max.
+    7, "Country ", 10, 10, 300, 400
+    8, "Pakistan", 10, 10, 300, 400
+    6, "India   ", 10, 10, 300, 400
+
+- Make image fix width, height
+    - Max width, max height
