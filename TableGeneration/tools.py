@@ -9,25 +9,17 @@ from selenium.webdriver.firefox.options import Options
 from PIL import Image
 from io import BytesIO
 
-globalminx=0
-globalminy=0
 globalmaxx=0
 globalmaxy=0
 
 
 def init_global_mins(startloc,endloc):
-    global globalminx,globalmaxx,globalminy,globalmaxy
-    globalminx = startloc['x']
-    globalminy = startloc['y']
+    global globalmaxx,globalmaxy
     globalmaxx = endloc['x']
     globalmaxy = endloc['y']
 
-def update_global_x_y(xmin,ymin,xmax,ymax):
-    global globalminx,globalminy,globalmaxx,globalmaxy
-    if(xmin<globalminx):
-        globalminx=xmin
-    if(ymin<globalminy):
-        globalminy=ymin
+def update_global_x_y(xmax,ymax):
+    global globalmaxx,globalmaxy
 
     if(xmax>globalmaxx):
         globalmaxx=xmax
@@ -35,8 +27,8 @@ def update_global_x_y(xmin,ymin,xmax,ymax):
         globalmaxy=ymax
 
 
-
 def html_to_img(htmlpath,outimgpath,id_count):
+    global globalmaxy,globalmaxx
     opts = Options()
     opts.set_headless()
     assert opts.headless
@@ -61,7 +53,7 @@ def html_to_img(htmlpath,outimgpath,id_count):
         ymin = loc['y']
         xmax = int(size_['width'] + xmin)
         ymax = int(size_['height'] + ymin)
-        update_global_x_y(xmin, ymin, xmax, ymax)
+        update_global_x_y(xmax, ymax)
         bboxes.append([lentext,txt,xmin,ymin,xmax,ymax])
         # cv2.rectangle(im,(xmin,ymin),(xmax,ymax),(0,0,255),2)
 
@@ -69,7 +61,11 @@ def html_to_img(htmlpath,outimgpath,id_count):
     driver.stop_client()
     driver.quit()
     im = Image.open(BytesIO(png))
-    im = im.crop((globalminx - 5, globalminy - 5, globalmaxx + 10, globalmaxy + 5))
+
+    width,height=im.size
+
+    im = im.crop((0,0, width, 768))
+    #print('\nImage shape:',im.size)
     im.save(outimgpath,dpi=(600,600))
     return bboxes
 

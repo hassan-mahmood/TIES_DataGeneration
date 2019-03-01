@@ -20,6 +20,7 @@ class Table:
 
     def create_html_table(self):
         #self.build_vocab('alltext.txt')
+        #length of largest word: 27
         self.initialize_table()
         same_row_matrix = self.get_same_matrix(self.same_rows)
         same_col_matrix = self.get_same_matrix(self.same_cols)

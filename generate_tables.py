@@ -30,14 +30,16 @@ rows=int(args.rows)
 #random.seed(a=None,version=2)
 arr=np.random.randint(1,10,(args.N,2))
 
-for i,subarr in tqdm(enumerate(arr)):
+start=len(os.listdir(args.outpath))//2
+
+for i,subarr in enumerate(arr):
     rows=subarr[0]
     cols=subarr[1]
 
     table=Table(rows,cols,args.imagespath,args.ocrpath,args.tablepath)
     same_row_matrix,same_col_matrix,same_cell_matrix,id_count=table.create_html_table()
-    bboxes=html_to_img(args.htmlpath,os.path.join(args.outpath,str(i)+'.png'),id_count)
-    infofile=open(os.path.join(args.outpath,str(i)),'wb')
+    bboxes=html_to_img(args.htmlpath,os.path.join(args.outpath,str(i+start)+'.png'),id_count)
+    infofile=open(os.path.join(args.outpath,str(i+start)),'wb')
     pickle.dump([same_row_matrix,same_col_matrix,same_cell_matrix,bboxes],infofile)
     infofile.close()
-
+    print('Completed: ',i+start)
