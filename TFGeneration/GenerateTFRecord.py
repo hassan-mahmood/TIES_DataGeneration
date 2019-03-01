@@ -7,9 +7,10 @@ import pickle
 from tqdm import tqdm
 
 class GenerateTFRecord:
-    def __init__(self, inpath, outpath):
+    def __init__(self, inpath, outpath,filesize):
         self.outtfpath = outpath
         self.inpath=inpath
+        self.filesize=filesize
         if(not os.path.exists(self.outtfpath)):
             os.mkdir(self.outtfpath)
 

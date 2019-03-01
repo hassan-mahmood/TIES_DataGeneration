@@ -1,5 +1,10 @@
 
 from TFGeneration.GenerateTFRecord import *
+import argparse
 
-t = GenerateTFRecord('gentables/','tfrecords/')
+parser=argparse.ArgumentParser()
+parser.add_argument('--filesize',type=int,defualt=100)
+args=parser.parse_args()
+
+t = GenerateTFRecord('gentables/','tfrecords/',args.filesize)
 t.write_tf()
