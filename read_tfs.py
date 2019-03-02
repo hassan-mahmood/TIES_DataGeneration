@@ -37,8 +37,12 @@ for file in os.listdir(tfdirpath):
     tf.train.start_queue_runners(sess)
 
     # Print features
-    vertex_text=read_data['global_features'].eval()
-    print(vertex_text)
+    while(True):
+        vertex_text=read_data['adjacency_matrix_cells'].eval()
+        #vertex_text=tf.reshape(vertex_text,(900,900)).eval()
+        print(vertex_text)
+
+
     #vertex_text=np.fromstring(vertex_text)
 
 

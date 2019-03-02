@@ -11,6 +11,7 @@ class GenerateTFRecord:
         self.outtfpath = outpath
         self.inpath=inpath
         self.filesize=filesize
+        self.writer=None
         if(not os.path.exists(self.outtfpath)):
             os.mkdir(self.outtfpath)
 
@@ -83,19 +84,34 @@ class GenerateTFRecord:
         seq_ex = tf.train.Example(features=all_features)
         return seq_ex
 
-    def write_tf(self):
-        with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,'tfdata.tfrecord')) as writer:
-            for file in tqdm(os.listdir(self.inpicklepath)):
-                if (file.endswith('.png')):
-                    img_path = os.path.join(self.inpicklepath, file)
-                    pickle_file = open(img_path.replace('.png', ''), 'rb')
-                    arr = pickle.load(pickle_file)
+    def write_tf(self,input_files_paths,output_file_name):
+        options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
+        with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
+            for img_path in input_files_paths:
+                pickle_file = open(img_path.replace('.png', ''), 'rb')
+                arr = pickle.load(pickle_file)
 
-                    colmatrix = np.array(arr[1],dtype=np.int64)
-                    cellmatrix = np.array(arr[2],dtype=np.int64)
-                    rowmatrix = np.array(arr[0],dtype=np.int64)
-                    bboxes = np.array(arr[3])
-                    seq_ex = self.generate_tf_record(img_path, cellmatrix, rowmatrix, colmatrix, bboxes)
-                    writer.write(seq_ex.SerializeToString())
+                colmatrix = np.array(arr[1],dtype=np.int64)
+                cellmatrix = np.array(arr[2],dtype=np.int64)
+                rowmatrix = np.array(arr[0],dtype=np.int64)
+                bboxes = np.array(arr[3])
+                seq_ex = self.generate_tf_record(img_path, cellmatrix, rowmatrix, colmatrix, bboxes)
+                writer.write(seq_ex.SerializeToString())
 
 
+    def write_to_tf(self):
+
+        files_list=[]
+        for file in os.listdir(self.inpicklepath)[:100]:
+            if(file.endswith('.png')):
+                files_list.append(os.path.join(self.inpicklepath,file))
+        counter=1
+        while(len(files_list)>self.filesize):
+            self.write_tf(files_list[:self.filesize],str(counter)+'.tfrecord')
+            files_list=files_list[self.filesize:]
+            print('\nCompleted :', str(counter) + '.tfrecord')
+            counter+=1
+
+        if(len(files_list)>0):
+            self.write_tf(files_list,str(counter)+'.tfrecord')
+            print('\nCompleted :', str(counter) + '.tfrecord')

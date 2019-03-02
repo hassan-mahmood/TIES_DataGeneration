@@ -5,6 +5,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver import Firefox
+from selenium.webdriver import PhantomJS
+
 from selenium.webdriver.firefox.options import Options
 from PIL import Image
 from io import BytesIO
@@ -32,7 +34,8 @@ def html_to_img(htmlpath,outimgpath,id_count):
     opts = Options()
     opts.set_headless()
     assert opts.headless
-    driver = Firefox(options=opts)
+    driver=PhantomJS()
+    #driver = Firefox(options=opts)
     driver.get(htmlpath)
 
     element = WebDriverWait(driver, 500).until(EC.presence_of_element_located((By.ID, '1')))
