@@ -10,13 +10,14 @@ class Table:
         self.distribution=Distribution(images_path,ocr_path,table_path)
         self.all_words,self.all_numbers=self.distribution.get_distribution()
         self.words_distribution, self.numbers_distribution = len(self.all_words), len(self.all_numbers)
-        self.html = """<html><div id="start"></div><table border="1" style="border-collapse:collapse;" cellpadding="6px">"""
+        self.html = """<html><div id="start"></div>"""
         self.id_count=1
         self.same_cols=[]
         self.same_rows=[]
         self.same_cells=[]
         self.header_span_indices=[]
         self.current_col=0
+        self.table_type=1
 
     def create_html_table(self):
         #self.build_vocab('alltext.txt')
@@ -32,11 +33,15 @@ class Table:
 
 
     def initialize_table(self):
+
+        self.html+="""<table border="1" style="border-collapse:collapse;" cellpadding="6px">"""
         self.define_col()
         if (self.no_of_cols > 1):
             self.header_span_indices = self.get_header_col_span_indices()
+
         self.create_headers()
         self.create_rows()
+        self.table_type=random.randint(1,5)
 
 
     def get_header_col_span_indices(self):

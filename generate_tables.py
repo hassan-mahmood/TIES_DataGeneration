@@ -15,7 +15,7 @@ parser.add_argument('--ocrpath',default='../Table_Detection_Dataset/unlv/unlv_xm
 parser.add_argument('--tablepath',default='../Table_Detection_Dataset/unlv/unlv_xml_gt')
 parser.add_argument('--cols',default=0)
 parser.add_argument('--rows',default=0)
-parser.add_argument('--htmlpath',default="file:///media/hassan/NewVolume/Server/Projects/DocAnalysis/myfile.html")
+#parser.add_argument('--htmlpath',default="file:///media/hassan/NewVolume/Server/Projects/DocAnalysis/myfile.html")
 parser.add_argument('--N',default=2,type=int,help='Number of images to generate')
 parser.add_argument('--outpath',help='output directory to store output images',default='gentables/')
 parser.add_argument('--distributionpath',default='distribution_pickle')
@@ -24,6 +24,9 @@ args=parser.parse_args()
 
 if(not os.path.exists(args.outpath)):
     os.mkdir(args.outpath)
+
+
+htmlpath=os.path.join('file://'+os.getcwd(),'myfile.html')
 
 cols=int(args.cols)
 rows=int(args.rows)
@@ -38,7 +41,7 @@ for i,subarr in enumerate(arr):
 
     table=Table(rows,cols,args.imagespath,args.ocrpath,args.tablepath)
     same_row_matrix,same_col_matrix,same_cell_matrix,id_count=table.create_html_table()
-    bboxes=html_to_img(args.htmlpath,os.path.join(args.outpath,str(i+start)+'.png'),id_count)
+    bboxes=html_to_img(htmlpath,os.path.join(args.outpath,str(i+start)+'.png'),id_count)
     infofile=open(os.path.join(args.outpath,str(i+start)),'wb')
     pickle.dump([same_row_matrix,same_col_matrix,same_cell_matrix,bboxes],infofile)
     infofile.close()

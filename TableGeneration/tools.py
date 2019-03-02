@@ -34,8 +34,8 @@ def html_to_img(htmlpath,outimgpath,id_count):
     opts = Options()
     opts.set_headless()
     assert opts.headless
-    driver=PhantomJS()
-    #driver = Firefox(options=opts)
+    #driver=PhantomJS()
+    driver = Firefox(options=opts)
     driver.get(htmlpath)
 
     element = WebDriverWait(driver, 500).until(EC.presence_of_element_located((By.ID, '1')))
