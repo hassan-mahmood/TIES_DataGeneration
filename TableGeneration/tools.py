@@ -19,14 +19,14 @@ warnings.warn = warn
 
 
 
-def html_to_img(driver,htmlpath,outimgpath,id_count,max_height,max_width):
+def html_to_img(driver,html_content,outimgpath,id_count,max_height,max_width):
     # opts = Options()
     # opts.set_headless()
     # assert opts.headless
     # #driver=PhantomJS()
     # driver = Firefox(options=opts)
 
-    driver.get(htmlpath)
+    driver.get("data:text/html;charset=utf-8," + html_content)
     #driver.execute_script("document.write('{}')".format(json.dumps(htmlcode)))
 
     element = WebDriverWait(driver, 500).until(EC.presence_of_element_located((By.ID, '1')))

@@ -23,7 +23,6 @@ parser.add_argument('--N',default=2,type=int,help='Number of images to generate'
 parser.add_argument('--outpath',help='main output directory to store output images',default='gentables/')
 parser.add_argument('--distributionpath',default='distribution_pickle')
 parser.add_argument('--threads',type=int,default=4)
-parser.add_argument('--resourcesdir',default='resourcesdir')
 args=parser.parse_args()
 
 #random.seed(a=None,version=2)
@@ -35,13 +34,9 @@ def create_dir(path):
         os.mkdir(path)
 
 
-def generate(outpath,htmlpath):
+def generate(outpath):
 
     create_dir(outpath)
-    #htmlpath=os.path.join(os.getcwd(),htmlfile)
-    f=open(htmlpath,'w')
-    f.write("""<html></html>""")
-    f.close()
 
     arr=np.random.randint(1,10,(args.N,2))
 
@@ -58,8 +53,8 @@ def generate(outpath,htmlpath):
         cols=subarr[1]
 
         table=Table(rows,cols,args.imagespath,args.ocrpath,args.tablepath)
-        same_row_matrix,same_col_matrix,same_cell_matrix,id_count=table.create_html(htmlpath)
-        bboxes=html_to_img(driver,'file://'+htmlpath,os.path.join(outpath,str(i+start)+'.png'),id_count,768,1366)
+        same_row_matrix,same_col_matrix,same_cell_matrix,id_count,html_content=table.create_html()
+        bboxes=html_to_img(driver,html_content,os.path.join(outpath,str(i+start)+'.png'),id_count,768,1366)
         infofile=open(os.path.join(outpath,str(i+start)),'wb')
         pickle.dump([same_row_matrix,same_col_matrix,same_cell_matrix,bboxes],infofile)
         infofile.close()
@@ -75,12 +70,10 @@ startime=time.time()
 procs=[]
 
 #for storing html files
-resourcesdir=os.path.join(os.getcwd(),args.resourcesdir)
-create_dir(resourcesdir)
 
 for i in range(args.threads):
     outpath=os.path.join(args.outpath+str(i)+'folder')
-    proc=Process(target=generate,args=(outpath,os.path.join(resourcesdir,'myfile'+str(i)+'.html')))
+    proc=Process(target=generate,args=(outpath,))
     procs.append(proc)
     proc.start()
 

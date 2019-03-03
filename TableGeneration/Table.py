@@ -38,16 +38,13 @@ class Table:
 
         self.html+="}</style></head>"
 
-    def create_html(self,htmlpath):
+    def create_html(self):
         self.create_style()
         self.create_table()
         same_row_matrix = self.get_same_matrix(self.same_rows)
         same_col_matrix = self.get_same_matrix(self.same_cols)
         same_cell_matrix = self.get_same_matrix(self.same_cells)
-        f = open(htmlpath, 'w',encoding='utf-8')
-        f.write(self.html)
-        f.close()
-        return same_row_matrix,same_col_matrix,same_cell_matrix,self.id_count
+        return same_row_matrix,same_col_matrix,same_cell_matrix,self.id_count,self.html
 
 
     def create_table(self):
