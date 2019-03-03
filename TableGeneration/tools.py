@@ -25,35 +25,37 @@ def html_to_img(driver,html_content,outimgpath,id_count,max_height,max_width):
     # assert opts.headless
     # #driver=PhantomJS()
     # driver = Firefox(options=opts)
+    try:
+        driver.get("data:text/html;charset=utf-8," + html_content)
+        #driver.execute_script("document.write('{}')".format(json.dumps(htmlcode)))
 
-    driver.get("data:text/html;charset=utf-8," + html_content)
-    #driver.execute_script("document.write('{}')".format(json.dumps(htmlcode)))
+        element = WebDriverWait(driver, 500).until(EC.presence_of_element_located((By.ID, '1')))
 
-    element = WebDriverWait(driver, 500).until(EC.presence_of_element_located((By.ID, '1')))
-
-    WebDriverWait(driver, 500).until(EC.visibility_of(element))
+        WebDriverWait(driver, 500).until(EC.visibility_of(element))
 
 
-    bboxes=[]
-    for id in range(1, id_count):
-        e = driver.find_element_by_id(str(id))
-        txt=e.text.strip()
-        lentext=len(txt)
-        loc = e.location
-        size_ = e.size
-        xmin = loc['x']
-        ymin = loc['y']
-        xmax = int(size_['width'] + xmin)
-        ymax = int(size_['height'] + ymin)
-        bboxes.append([lentext,txt,xmin,ymin,xmax,ymax])
-        # cv2.rectangle(im,(xmin,ymin),(xmax,ymax),(0,0,255),2)
+        bboxes=[]
+        for id in range(1, id_count):
+            e = driver.find_element_by_id(str(id))
+            txt=e.text.strip()
+            lentext=len(txt)
+            loc = e.location
+            size_ = e.size
+            xmin = loc['x']
+            ymin = loc['y']
+            xmax = int(size_['width'] + xmin)
+            ymax = int(size_['height'] + ymin)
+            bboxes.append([lentext,txt,xmin,ymin,xmax,ymax])
+            # cv2.rectangle(im,(xmin,ymin),(xmax,ymax),(0,0,255),2)
 
-    png = driver.get_screenshot_as_png()
+        png = driver.get_screenshot_as_png()
 
-    im = Image.open(BytesIO(png))
-    width,height=im.size
+        im = Image.open(BytesIO(png))
+        width,height=im.size
 
-    im = im.crop((0,0, max_width, max_height))
-    im.save(outimgpath,dpi=(600,600))
-    return bboxes
+        im = im.crop((0,0, max_width, max_height))
+        im.save(outimgpath,dpi=(600,600))
+        return bboxes
 
+    except:
+        raise Exception()

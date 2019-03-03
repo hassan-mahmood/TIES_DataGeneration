@@ -51,13 +51,16 @@ def generate(outpath):
     for i,subarr in enumerate(arr):
         rows=subarr[0]
         cols=subarr[1]
-
-        table=Table(rows,cols,args.imagespath,args.ocrpath,args.tablepath)
-        same_row_matrix,same_col_matrix,same_cell_matrix,id_count,html_content=table.create_html()
-        bboxes=html_to_img(driver,html_content,os.path.join(outpath,str(i+start)+'.png'),id_count,768,1366)
-        infofile=open(os.path.join(outpath,str(i+start)),'wb')
-        pickle.dump([same_row_matrix,same_col_matrix,same_cell_matrix,bboxes],infofile)
-        infofile.close()
+        try:
+            table=Table(rows,cols,args.imagespath,args.ocrpath,args.tablepath)
+            same_row_matrix,same_col_matrix,same_cell_matrix,id_count,html_content=table.create_html()
+            bboxes=html_to_img(driver,html_content,os.path.join(outpath,str(i+start)+'.png'),id_count,768,1366)
+            infofile=open(os.path.join(outpath,str(i+start)),'wb')
+            pickle.dump([same_row_matrix,same_col_matrix,same_cell_matrix,bboxes],infofile)
+            infofile.close()
+        except:
+            print('\nException')
+            pass
 
     print('Completed: ',outpath)
 
