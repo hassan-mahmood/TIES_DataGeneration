@@ -20,21 +20,25 @@ parser.add_argument('--tablepath',default='../Table_Detection_Dataset/unlv/unlv_
 parser.add_argument('--cols',default=0)
 parser.add_argument('--rows',default=0)
 parser.add_argument('--N',default=2,type=int,help='Number of images to generate')
-parser.add_argument('--outpath',help='output directory to store output images',default='gentables/')
+parser.add_argument('--outpath',help='main output directory to store output images',default='gentables/')
 parser.add_argument('--distributionpath',default='distribution_pickle')
 parser.add_argument('--threads',type=int,default=4)
-
+parser.add_argument('--resourcesdir',default='resourcesdir')
 args=parser.parse_args()
 
 #random.seed(a=None,version=2)
 import time
 
-def generate(outpath,htmlfile):
-    if(not os.path.exists(outpath)):
-        os.mkdir(outpath)
+
+def create_dir(path):
+    if (not os.path.exists(path)):
+        os.mkdir(path)
 
 
-    htmlpath=os.path.join(os.getcwd(),htmlfile)
+def generate(outpath,htmlpath):
+
+    create_dir(outpath)
+    #htmlpath=os.path.join(os.getcwd(),htmlfile)
     f=open(htmlpath,'w')
     f.write("""<html></html>""")
     f.close()
@@ -65,12 +69,18 @@ def generate(outpath,htmlfile):
     driver.stop_client()
     driver.quit()
 
+create_dir(args.outpath)
 
 startime=time.time()
 procs=[]
+
+#for storing html files
+resourcesdir=os.path.join(os.getcwd(),args.resourcesdir)
+create_dir(resourcesdir)
+
 for i in range(args.threads):
-    outpath=args.outpath[:-2]+str(i)+'/'
-    proc=Process(target=generate,args=(outpath,'myfile'+str(i)+'.html'))
+    outpath=os.path.join(args.outpath+str(i)+'folder')
+    proc=Process(target=generate,args=(outpath,os.path.join(resourcesdir,'myfile'+str(i)+'.html')))
     procs.append(proc)
     proc.start()
 
