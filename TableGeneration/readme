@@ -1,4 +1,22 @@
 Different Types of Tables:
-1. Simple Tables
-2. Tables with col and row spans
-3. Tables with line under header
+
+id - textalign - border -
+1. Tables with border
+2. Tables without borders
+3. Tables without border with line under header
+tr {
+  border-bottom: 1px solid #ddd;
+}
+
+4. without borders:
+td,th{padding:6px;padding-left: 15px;padding-right: 15px;border-left: 1px solid black;}th{border-bottom: 1px solid black;}table tr td:first-child,
+table tr th:first-child {
+  border-left: 0;
+}td,th{padding:6px;padding-left: 15px;padding-right: 15px;border-left: 1px solid black;}th{border-bottom: 1px solid black;}
+
+
+
+
+5. irregular headers
+    - remove first header and left most column be all bold
+    - left most column be bold and spanning several rows, 2nd column be all bold and so on

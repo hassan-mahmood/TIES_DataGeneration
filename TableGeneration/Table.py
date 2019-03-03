@@ -10,7 +10,7 @@ class Table:
         self.distribution=Distribution(images_path,ocr_path,table_path)
         self.all_words,self.all_numbers=self.distribution.get_distribution()
         self.words_distribution, self.numbers_distribution = len(self.all_words), len(self.all_numbers)
-        self.html = """<html><div id="start"></div>"""
+        self.html = """<html>"""
         self.id_count=1
         self.same_cols=[]
         self.same_rows=[]
@@ -19,22 +19,41 @@ class Table:
         self.current_col=0
         self.table_type=1
 
-    def create_html_table(self):
-        #self.build_vocab('alltext.txt')
-        #length of largest word: 27
-        self.initialize_table()
+
+
+    def create_style(self):
+        self.html+="<head><style>"
+        self.html+="html{width:1366px;height:768px;background-color: white;}table{"
+
+        #random center align
+        if(random.randint(0,1)==1):
+            self.html+="text-align:center;"
+
+        self.html+="""border-collapse:collapse;}td,th{padding:6px;padding-left: 15px;padding-right: 15px;"""
+
+        if (random.randint(0, 1) == 1):  # border or non-border
+            self.html += """ border:1px solid black; """
+        else:
+            self.html+="""border-bottom:1px solid black;"""
+
+        self.html+="}</style></head>"
+
+    def create_html(self,htmlpath):
+        self.create_style()
+        self.create_table()
         same_row_matrix = self.get_same_matrix(self.same_rows)
         same_col_matrix = self.get_same_matrix(self.same_cols)
         same_cell_matrix = self.get_same_matrix(self.same_cells)
-        f = open('myfile.html', 'w')
+        f = open(htmlpath, 'w',encoding='utf-8')
         f.write(self.html)
         f.close()
         return same_row_matrix,same_col_matrix,same_cell_matrix,self.id_count
 
 
-    def initialize_table(self):
+    def create_table(self):
 
-        self.html+="""<table border="1" style="border-collapse:collapse;" cellpadding="6px">"""
+        self.html+="""<table>"""
+
         self.define_col()
         if (self.no_of_cols > 1):
             self.header_span_indices = self.get_header_col_span_indices()
@@ -60,7 +79,7 @@ class Table:
 
     def get_rand_text(self,header):
         #header is a flag. If true, means it should be text, else conditioned upon the col_types
-        text_len = random.randint(1, 3)
+        text_len = random.randint(1, 2)
         if(header==True or self.col_types[self.current_col]==0):
             text_arr = random.sample(self.all_words, text_len)
         else:
@@ -150,7 +169,7 @@ class Table:
             end_row = self.id_count
             self.enlist_same_rows(start_row, end_row)
             self.html += '</tr>'
-        self.html += """</table><div id="end"></div></html>"""
+        self.html += """</table></html>"""
 
     def get_same_matrix(self,same_data):
         same_matrix = np.zeros(shape=(self.id_count, self.id_count))
