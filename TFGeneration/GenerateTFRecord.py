@@ -89,7 +89,6 @@ class GenerateTFRecord:
         return seq_ex
 
     def write_tf(self,input_files_paths,output_file_name):
-        print(len(input_files_paths))
         options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
 
         with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
@@ -122,7 +121,7 @@ class GenerateTFRecord:
         start=0
         end=self.filesize
 
-        self.fileslist=self.fileslist[:98]
+        self.fileslist=self.fileslist
 
         for end in range(self.filesize,len(self.fileslist),self.filesize):
 
