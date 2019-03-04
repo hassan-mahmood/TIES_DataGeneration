@@ -5,6 +5,7 @@ import os
 import shutil
 import pickle
 from tqdm import tqdm
+from multiprocessing import Process,Lock
 
 class GenerateTFRecord:
     def __init__(self, inpath, outpath,filesize):
@@ -22,6 +23,8 @@ class GenerateTFRecord:
         self.num_of_max_vertices=900
         self.max_length_of_word=30
         self.num_data_dims=5
+        self.fileslist=[]
+        self.counter=1
         #self.str_to_chars=lambda str:np.chararray(list(str))
 
     def str_to_int(self,str):
@@ -98,8 +101,17 @@ class GenerateTFRecord:
                 seq_ex = self.generate_tf_record(img_path, cellmatrix, rowmatrix, colmatrix, bboxes)
                 writer.write(seq_ex.SerializeToString())
 
+    def threaded_write(self):
 
-    def write_to_tf(self):
+        while (len(self.files_list) > self.filesize):
+            self.write_tf(self.files_list[:self.filesize], str(self.counter) + '.tfrecord')
+            self.files_list = self.files_list[self.filesize:]
+            print('\nCompleted :', str(self.counter) + '.tfrecord')
+            self.counter += 1
+
+
+
+    def write_to_tf(self,threads):
 
         files_list=[]
         for directory in os.listdir(self.inpicklepath):
@@ -107,19 +119,27 @@ class GenerateTFRecord:
             for file in os.listdir(dirpath):
                 if (file.endswith('.png')):
                     files_list.append(os.path.join(dirpath, file))
-        
+
+        self.fileslist=files_list
+
+
+        procs=[]
+        for i in range(threads):
+            proc=Process(target=self.threaded_write)
+            procs.append(proc)
+            proc.start()
+        for proc in procs:
+            proc.join()
+
+        if (len(self.files_list) > 0):
+            self.write_tf(files_list, str(self.counter) + '.tfrecord')
+            print('\nCompleted :', str(self.counter) + '.tfrecord')
+
         # for file in os.listdir(self.inpicklepath):
         #     if(file.endswith('.png')):
         #         files_list.append(os.path.join(self.inpicklepath,file))
         counter=1
 
+        procs=[]
 
-        while(len(files_list)>self.filesize):
-            self.write_tf(files_list[:self.filesize],str(counter)+'.tfrecord')
-            files_list=files_list[self.filesize:]
-            print('\nCompleted :', str(counter) + '.tfrecord')
-            counter+=1
 
-        if(len(files_list)>0):
-            self.write_tf(files_list,str(counter)+'.tfrecord')
-            print('\nCompleted :', str(counter) + '.tfrecord')
