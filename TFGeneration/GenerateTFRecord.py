@@ -110,17 +110,17 @@ class GenerateTFRecord:
         for i, subarr in enumerate(arr):
             rows = subarr[0]
             cols = subarr[1]
-            while(True):
-                try:
-                    table = Table(rows, cols, self.unlvimagespath, self.unlvocrpath, self.unlvtablepath)
-                    same_row_matrix, same_col_matrix, same_cell_matrix, id_count, html_content = table.create_html()
-                    im,bboxes = html_to_img(driver, html_content, id_count, 768, 1366)
-                    data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes],[im]])
-                    break
-                    #pickle.dump([same_row_matrix, same_col_matrix, same_cell_matrix, bboxes], infofile)
-                except:
-                    print('\nException')
-                    pass
+            #while(True):
+            try:
+                table = Table(rows, cols, self.unlvimagespath, self.unlvocrpath, self.unlvtablepath)
+                same_row_matrix, same_col_matrix, same_cell_matrix, id_count, html_content = table.create_html()
+                im,bboxes = html_to_img(driver, html_content, id_count, 768, 1366)
+                data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes],[im]])
+         #       break
+                #pickle.dump([same_row_matrix, same_col_matrix, same_cell_matrix, bboxes], infofile)
+            except:
+                print('\nException')
+                pass
         if(len(data_arr)!=N_imgs):
             print('\n Images not equal to the required size.')
             return None
