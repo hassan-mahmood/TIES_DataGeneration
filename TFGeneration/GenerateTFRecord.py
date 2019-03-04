@@ -6,6 +6,7 @@ import shutil
 import pickle
 from tqdm import tqdm
 from multiprocessing import Process,Lock
+import time
 
 class GenerateTFRecord:
     def __init__(self, inpath, outpath,filesize):
@@ -24,7 +25,9 @@ class GenerateTFRecord:
         self.max_length_of_word=30
         self.num_data_dims=5
         self.fileslist=[]
-        self.counter=1
+        self.filecounter=1
+        self.threadscounter=0
+        self.lock=Lock()
         #self.str_to_chars=lambda str:np.chararray(list(str))
 
     def str_to_int(self,str):
@@ -43,9 +46,7 @@ class GenerateTFRecord:
 
     def generate_tf_record(self, img_path, cellmatrix, rowmatrix, colmatrix, arr):
 
-        # cellmatrix = cellmatrix.tostring()
-        # colmatrix = colmatrix.tostring()
-        # rowmatrix = rowmatrix.tostring()
+
         cellmatrix=self.pad_with_zeros(cellmatrix,(self.num_of_max_vertices,self.num_of_max_vertices))
         colmatrix = self.pad_with_zeros(colmatrix, (self.num_of_max_vertices, self.num_of_max_vertices))
         rowmatrix = self.pad_with_zeros(rowmatrix, (self.num_of_max_vertices, self.num_of_max_vertices))
@@ -56,7 +57,7 @@ class GenerateTFRecord:
         words_arr = arr[:, 1].tolist()
         no_of_words = len(words_arr)
 
-        #words_arr = [val.encode('utf-8') for val in words_arr]
+
         lengths_arr = self.convert_to_int(arr[:, 0])
         vertex_features=np.zeros(shape=(self.num_of_max_vertices,self.num_data_dims),dtype=np.int64)
         lengths_arr=np.array(lengths_arr).reshape(len(lengths_arr),-1)
@@ -88,9 +89,11 @@ class GenerateTFRecord:
         return seq_ex
 
     def write_tf(self,input_files_paths,output_file_name):
+        print(len(input_files_paths))
         options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
+
         with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
-            for i,img_path in tqdm(enumerate(input_files_paths)):
+            for i,img_path in enumerate(input_files_paths):
                 pickle_file = open(img_path.replace('.png', ''), 'rb')
                 arr = pickle.load(pickle_file)
 
@@ -101,17 +104,9 @@ class GenerateTFRecord:
                 seq_ex = self.generate_tf_record(img_path, cellmatrix, rowmatrix, colmatrix, bboxes)
                 writer.write(seq_ex.SerializeToString())
 
-    def threaded_write(self):
+        print('\ncompleted:', output_file_name)
 
-        while (len(self.files_list) > self.filesize):
-            self.write_tf(self.files_list[:self.filesize], str(self.counter) + '.tfrecord')
-            self.files_list = self.files_list[self.filesize:]
-            print('\nCompleted :', str(self.counter) + '.tfrecord')
-            self.counter += 1
-
-
-
-    def write_to_tf(self,threads):
+    def write_to_tf(self,max_threads):
 
         files_list=[]
         for directory in os.listdir(self.inpicklepath):
@@ -122,24 +117,37 @@ class GenerateTFRecord:
 
         self.fileslist=files_list
 
+        starttime=time.time()
+        threads=[]
+        start=0
+        end=self.filesize
 
-        procs=[]
-        for i in range(threads):
-            proc=Process(target=self.threaded_write)
-            procs.append(proc)
+        self.fileslist=self.fileslist[:98]
+
+        for end in range(self.filesize,len(self.fileslist),self.filesize):
+
+
+            proc = Process(target=self.write_tf, args=(self.fileslist[start:end], str(self.filecounter) + '.tfrecord'))
+            threads.append(proc)
             proc.start()
-        for proc in procs:
-            proc.join()
+            start=end
 
-        if (len(self.files_list) > 0):
-            self.write_tf(files_list, str(self.counter) + '.tfrecord')
-            print('\nCompleted :', str(self.counter) + '.tfrecord')
+            self.lock.acquire()
+            self.threadscounter+=1
+            self.filecounter+=1
+            self.lock.release()
 
-        # for file in os.listdir(self.inpicklepath):
-        #     if(file.endswith('.png')):
-        #         files_list.append(os.path.join(self.inpicklepath,file))
-        counter=1
 
-        procs=[]
+            if(self.threadscounter>=max_threads):
+                for proc in threads:
+                    proc.join()
+                self.threadscounter=0
 
+        end=len(self.fileslist)
+
+        proc = Process(target=self.write_tf, args=(self.fileslist[start:end], str(self.filecounter) + '.tfrecord'))
+        threads.append(proc)
+        proc.start()
+        proc.join()
+        print(time.time()-starttime)
 
