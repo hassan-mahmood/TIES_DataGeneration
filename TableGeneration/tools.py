@@ -19,7 +19,7 @@ warnings.warn = warn
 
 
 
-def html_to_img(driver,html_content,outimgpath,id_count,max_height,max_width):
+def html_to_img(driver,html_content,id_count,max_height,max_width):
     # opts = Options()
     # opts.set_headless()
     # assert opts.headless
@@ -54,8 +54,9 @@ def html_to_img(driver,html_content,outimgpath,id_count,max_height,max_width):
         width,height=im.size
 
         im = im.crop((0,0, max_width, max_height))
-        im.save(outimgpath,dpi=(600,600))
-        return bboxes
+
+        #im.save(outimgpath,dpi=(600,600))
+        return im,bboxes
 
     except:
         raise Exception()

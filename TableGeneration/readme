@@ -20,3 +20,6 @@ table tr th:first-child {
 5. irregular headers
     - remove first header and left most column be all bold
     - left most column be bold and spanning several rows, 2nd column be all bold and so on
+
+
+probabilites: 0.2,0.1,0.2,0.2,0.3

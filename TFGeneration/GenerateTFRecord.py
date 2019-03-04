@@ -7,20 +7,34 @@ import pickle
 from tqdm import tqdm
 from multiprocessing import Process,Lock
 import time
+from TableGeneration.Distribution import Distribution
+from TableGeneration.Table import Table
+from multiprocessing import Process
+import time
+import random
+import argparse
+from TableGeneration.tools import *
+import os
+import pickle
+import numpy as np
+from tqdm import tqdm
+from selenium.webdriver import Firefox
+from selenium.webdriver import PhantomJS
+
 
 class GenerateTFRecord:
-    def __init__(self, inpath, outpath,filesize):
+    def __init__(self, outpath,filesize,tfcount,unlvimagespath,unlvocrpath,unlvtablepath):
         self.outtfpath = outpath
-        self.inpath=inpath
         self.filesize=filesize
+        self.num_of_tfs=tfcount
+        self.unlvocrpath=unlvocrpath
+        self.unlvimagespath=unlvimagespath
+        self.unlvtablepath=unlvtablepath
+
         self.writer=None
         if(not os.path.exists(self.outtfpath)):
             os.mkdir(self.outtfpath)
 
-        if (not os.path.exists(self.inpath)):
-            print('\nInput directory does not exist')
-
-        self.inpicklepath = inpath
         self.num_of_max_vertices=900
         self.max_length_of_word=30
         self.num_data_dims=5
@@ -44,14 +58,15 @@ class GenerateTFRecord:
         dummy[:arr.shape[0],:arr.shape[1]]=arr
         return dummy
 
-    def generate_tf_record(self, img_path, cellmatrix, rowmatrix, colmatrix, arr):
+    def generate_tf_record(self, im, cellmatrix, rowmatrix, colmatrix, arr):
 
 
         cellmatrix=self.pad_with_zeros(cellmatrix,(self.num_of_max_vertices,self.num_of_max_vertices))
         colmatrix = self.pad_with_zeros(colmatrix, (self.num_of_max_vertices, self.num_of_max_vertices))
         rowmatrix = self.pad_with_zeros(rowmatrix, (self.num_of_max_vertices, self.num_of_max_vertices))
 
-        im = np.array(cv2.imread(img_path, 0),dtype=np.int64)
+        #im = np.array(cv2.imread(img_path, 0),dtype=np.int64)
+        im=im.astype(np.int64)
         img_height, img_width=im.shape
 
         words_arr = arr[:, 1].tolist()
@@ -88,48 +103,68 @@ class GenerateTFRecord:
         seq_ex = tf.train.Example(features=all_features)
         return seq_ex
 
-    def write_tf(self,input_files_paths,output_file_name):
+    def generate_tables(self,driver,N_imgs):
+
+        arr = np.random.randint(1, 10, (N_imgs, 2))
+        data_arr=[]
+        for i, subarr in enumerate(arr):
+            rows = subarr[0]
+            cols = subarr[1]
+            try:
+                table = Table(rows, cols, self.unlvimagespath, self.unlvocrpath, self.unlvtablepath)
+                same_row_matrix, same_col_matrix, same_cell_matrix, id_count, html_content = table.create_html()
+                im,bboxes = html_to_img(driver, html_content, id_count, 768, 1366)
+                data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes],[im]])
+                #pickle.dump([same_row_matrix, same_col_matrix, same_cell_matrix, bboxes], infofile)
+            except:
+                print('\nException')
+                pass
+        return data_arr
+
+    def write_tf(self,filesize,output_file_name):
+
         options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
-
+        locallock=Lock()
+        opts = Options()
+        opts.set_headless()
+        assert opts.headless
+        # driver=PhantomJS()
+        driver = Firefox(options=opts)
+        print('Started:', output_file_name)
         with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
-            for i,img_path in enumerate(input_files_paths):
-                pickle_file = open(img_path.replace('.png', ''), 'rb')
-                arr = pickle.load(pickle_file)
+            try:
+                data_arr=self.generate_tables(driver,filesize)
 
-                colmatrix = np.array(arr[1],dtype=np.int64)
-                cellmatrix = np.array(arr[2],dtype=np.int64)
-                rowmatrix = np.array(arr[0],dtype=np.int64)
-                bboxes = np.array(arr[3])
-                seq_ex = self.generate_tf_record(img_path, cellmatrix, rowmatrix, colmatrix, bboxes)
-                writer.write(seq_ex.SerializeToString())
+                for subarr in data_arr:
+                    arr=subarr[0]
+                    img=np.asarray(subarr[1][0],np.int64)[:,:,0]
+                    colmatrix = np.array(arr[1],dtype=np.int64)
+                    cellmatrix = np.array(arr[2],dtype=np.int64)
+                    rowmatrix = np.array(arr[0],dtype=np.int64)
+                    bboxes = np.array(arr[3])
+                    seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes)
+                    writer.write(seq_ex.SerializeToString())
+                print('Completed:', output_file_name)
+            except Exception as e:
+               print('\n Removing ',output_file_name)
+               os.remove(os.path.join(self.outtfpath,output_file_name))
 
-        print('\ncompleted:', output_file_name)
+        driver.stop_client()
+        driver.quit()
+
 
     def write_to_tf(self,max_threads):
 
-        files_list=[]
-        for directory in os.listdir(self.inpicklepath):
-            dirpath=os.path.join(self.inpicklepath,directory)
-            for file in os.listdir(dirpath):
-                if (file.endswith('.png')):
-                    files_list.append(os.path.join(dirpath, file))
-
-        self.fileslist=files_list
-
         starttime=time.time()
         threads=[]
-        start=0
-        end=self.filesize
 
         self.fileslist=self.fileslist
 
-        for end in range(self.filesize,len(self.fileslist),self.filesize):
+        for i in range(self.num_of_tfs):
 
-
-            proc = Process(target=self.write_tf, args=(self.fileslist[start:end], str(self.filecounter) + '.tfrecord'))
+            proc = Process(target=self.write_tf, args=(self.filesize,str(self.filecounter) + '.tfrecord'))
             threads.append(proc)
             proc.start()
-            start=end
 
             self.lock.acquire()
             self.threadscounter+=1
@@ -142,11 +177,6 @@ class GenerateTFRecord:
                     proc.join()
                 self.threadscounter=0
 
-        end=len(self.fileslist)
 
-        proc = Process(target=self.write_tf, args=(self.fileslist[start:end], str(self.filecounter) + '.tfrecord'))
-        threads.append(proc)
-        proc.start()
-        proc.join()
         print(time.time()-starttime)
 
