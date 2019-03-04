@@ -67,7 +67,6 @@ class GenerateTFRecord:
 
         vertex_text = np.zeros((self.num_of_max_vertices,self.max_length_of_word), dtype=np.int64)
         vertex_text[:no_of_words]=np.array(list(map(self.str_to_int,words_arr)))
-        print('vertex text shape:',vertex_text.shape)
 
 
         feature = dict()
@@ -88,7 +87,7 @@ class GenerateTFRecord:
     def write_tf(self,input_files_paths,output_file_name):
         options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
         with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
-            for img_path in input_files_paths:
+            for i,img_path in tqdm(enumerate(input_files_paths)):
                 pickle_file = open(img_path.replace('.png', ''), 'rb')
                 arr = pickle.load(pickle_file)
 
@@ -103,10 +102,18 @@ class GenerateTFRecord:
     def write_to_tf(self):
 
         files_list=[]
-        for file in os.listdir(self.inpicklepath)[:100]:
-            if(file.endswith('.png')):
-                files_list.append(os.path.join(self.inpicklepath,file))
+        for directory in os.listdir(self.inpicklepath):
+            dirpath=os.path.join(self.inpicklepath,directory)
+            for file in os.listdir(dirpath):
+                if (file.endswith('.png')):
+                    files_list.append(os.path.join(dirpath, file))
+        
+        # for file in os.listdir(self.inpicklepath):
+        #     if(file.endswith('.png')):
+        #         files_list.append(os.path.join(self.inpicklepath,file))
         counter=1
+
+
         while(len(files_list)>self.filesize):
             self.write_tf(files_list[:self.filesize],str(counter)+'.tfrecord')
             files_list=files_list[self.filesize:]
