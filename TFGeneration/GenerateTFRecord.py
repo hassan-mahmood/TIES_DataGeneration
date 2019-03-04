@@ -110,16 +110,39 @@ class GenerateTFRecord:
         for i, subarr in enumerate(arr):
             rows = subarr[0]
             cols = subarr[1]
-            try:
-                table = Table(rows, cols, self.unlvimagespath, self.unlvocrpath, self.unlvtablepath)
-                same_row_matrix, same_col_matrix, same_cell_matrix, id_count, html_content = table.create_html()
-                im,bboxes = html_to_img(driver, html_content, id_count, 768, 1366)
-                data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes],[im]])
-                #pickle.dump([same_row_matrix, same_col_matrix, same_cell_matrix, bboxes], infofile)
-            except:
-                print('\nException')
-                pass
+            while(True):
+                try:
+                    table = Table(rows, cols, self.unlvimagespath, self.unlvocrpath, self.unlvtablepath)
+                    same_row_matrix, same_col_matrix, same_cell_matrix, id_count, html_content = table.create_html()
+                    im,bboxes = html_to_img(driver, html_content, id_count, 768, 1366)
+                    data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes],[im]])
+                    break
+                    #pickle.dump([same_row_matrix, same_col_matrix, same_cell_matrix, bboxes], infofile)
+                except:
+                    print('\nException')
+                    pass
+        if(len(data_arr)!=N_imgs):
+            return None
         return data_arr
+
+    def draw_col_matrix(self,im,arr,matrix):
+
+        no_of_words=len(arr)
+        print('matrix shape',matrix.shape)
+        cv2.imwrite('hassan12.jpg',im)
+        im=im.astype(np.uint8)
+        arr=arr[:,2:]
+        im=np.dstack((im,im,im))
+        #im=cv2.cvtColor(im,cv2.COLOR_GRAY2BGR)
+        print(arr)
+        x=2
+        indices=np.argwhere(matrix[x]==1)
+        print('\n\nindices:',indices)
+        for index in indices:
+            cv2.rectangle(im, (int(arr[index,0]), int(arr[index,1])), (int(arr[index,2]), int(arr[index,3])), (0, 0, 255), 1)
+
+        cv2.imwrite('hassan22.jpg',im)
+
 
     def write_tf(self,filesize,output_file_name):
 
@@ -132,22 +155,26 @@ class GenerateTFRecord:
         driver = Firefox(options=opts)
         print('Started:', output_file_name)
         with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
-            try:
-                data_arr=self.generate_tables(driver,filesize)
+            # try:
+            data_arr=self.generate_tables(driver,filesize)
 
-                for subarr in data_arr:
-                    arr=subarr[0]
-                    img=np.asarray(subarr[1][0],np.int64)[:,:,0]
-                    colmatrix = np.array(arr[1],dtype=np.int64)
-                    cellmatrix = np.array(arr[2],dtype=np.int64)
-                    rowmatrix = np.array(arr[0],dtype=np.int64)
-                    bboxes = np.array(arr[3])
-                    seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes)
-                    writer.write(seq_ex.SerializeToString())
-                print('Completed:', output_file_name)
-            except Exception as e:
-               print('Removing ',output_file_name)
-               os.remove(os.path.join(self.outtfpath,output_file_name))
+            for subarr in data_arr:
+                arr=subarr[0]
+                img=np.asarray(subarr[1][0],np.int64)[:,:,0]
+                colmatrix = np.array(arr[1],dtype=np.int64)
+                cellmatrix = np.array(arr[2],dtype=np.int64)
+                rowmatrix = np.array(arr[0],dtype=np.int64)
+                bboxes = np.array(arr[3])
+                #self.draw_col_matrix(img,bboxes, colmatrix)
+                #driver.stop_client()
+                #driver.quit()
+                #0 / 0
+                seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes)
+                writer.write(seq_ex.SerializeToString())
+            print('Completed:', output_file_name)
+            # except Exception as e:
+            #    print('Removing ',output_file_name)
+            #    os.remove(os.path.join(self.outtfpath,output_file_name))
 
         driver.stop_client()
         driver.quit()

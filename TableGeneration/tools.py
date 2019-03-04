@@ -35,7 +35,7 @@ def html_to_img(driver,html_content,id_count,max_height,max_width):
 
 
         bboxes=[]
-        for id in range(1, id_count):
+        for id in range(id_count):
             e = driver.find_element_by_id(str(id))
             txt=e.text.strip()
             lentext=len(txt)

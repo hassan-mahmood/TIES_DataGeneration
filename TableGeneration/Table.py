@@ -11,7 +11,7 @@ class Table:
         self.all_words,self.all_numbers=self.distribution.get_distribution()
         self.words_distribution, self.numbers_distribution = len(self.all_words), len(self.all_numbers)
         self.html = """<html>"""
-        self.id_count=1
+        self.id_count=0
         self.same_cols=[]
         self.same_rows=[]
         self.same_cells=[]
