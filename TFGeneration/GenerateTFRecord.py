@@ -146,7 +146,7 @@ class GenerateTFRecord:
                     writer.write(seq_ex.SerializeToString())
                 print('Completed:', output_file_name)
             except Exception as e:
-               print('\n Removing ',output_file_name)
+               print('Removing ',output_file_name)
                os.remove(os.path.join(self.outtfpath,output_file_name))
 
         driver.stop_client()
