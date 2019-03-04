@@ -122,6 +122,7 @@ class GenerateTFRecord:
                     print('\nException')
                     pass
         if(len(data_arr)!=N_imgs):
+            print('\n Images not equal to the required size.')
             return None
         return data_arr
 
@@ -155,26 +156,26 @@ class GenerateTFRecord:
         driver = Firefox(options=opts)
         print('Started:', output_file_name)
         with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
-            # try:
-            data_arr=self.generate_tables(driver,filesize)
+            try:
+                data_arr=self.generate_tables(driver,filesize)
 
-            for subarr in data_arr:
-                arr=subarr[0]
-                img=np.asarray(subarr[1][0],np.int64)[:,:,0]
-                colmatrix = np.array(arr[1],dtype=np.int64)
-                cellmatrix = np.array(arr[2],dtype=np.int64)
-                rowmatrix = np.array(arr[0],dtype=np.int64)
-                bboxes = np.array(arr[3])
-                #self.draw_col_matrix(img,bboxes, colmatrix)
-                #driver.stop_client()
-                #driver.quit()
-                #0 / 0
-                seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes)
-                writer.write(seq_ex.SerializeToString())
-            print('Completed:', output_file_name)
-            # except Exception as e:
-            #    print('Removing ',output_file_name)
-            #    os.remove(os.path.join(self.outtfpath,output_file_name))
+                for subarr in data_arr:
+                    arr=subarr[0]
+                    img=np.asarray(subarr[1][0],np.int64)[:,:,0]
+                    colmatrix = np.array(arr[1],dtype=np.int64)
+                    cellmatrix = np.array(arr[2],dtype=np.int64)
+                    rowmatrix = np.array(arr[0],dtype=np.int64)
+                    bboxes = np.array(arr[3])
+                    #self.draw_col_matrix(img,bboxes, colmatrix)
+                    #driver.stop_client()
+                    #driver.quit()
+                    #0 / 0
+                    seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes)
+                    writer.write(seq_ex.SerializeToString())
+                print('Completed:', output_file_name)
+            except Exception as e:
+               print('Removing ',output_file_name)
+               os.remove(os.path.join(self.outtfpath,output_file_name))
 
         driver.stop_client()
         driver.quit()
