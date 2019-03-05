@@ -66,8 +66,8 @@ class Table:
         l = []
         for e in range(x, self.no_of_cols-1, 2):
             l.append(x)
-        #return random.sample(l, random.randint(0, len(l)))
-        return [0,4]
+        return random.sample(l, random.randint(0, len(l)))
+        #return [0,4]
 
     def define_col(self):
         total=self.words_distribution+self.numbers_distribution

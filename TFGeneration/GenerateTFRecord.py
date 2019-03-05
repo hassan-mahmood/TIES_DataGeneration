@@ -208,10 +208,10 @@ class GenerateTFRecord:
                     cellmatrix = np.array(arr[2],dtype=np.int64)
                     rowmatrix = np.array(arr[0],dtype=np.int64)
                     bboxes = np.array(arr[3])
-                    self.draw_col_matrix(img,bboxes, rowmatrix)
-                    driver.stop_client()
-                    driver.quit()
-                    0 / 0
+                    # self.draw_col_matrix(img,bboxes, rowmatrix)
+                    # driver.stop_client()
+                    # driver.quit()
+                    # 0 / 0
                     seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes)
                     writer.write(seq_ex.SerializeToString())
                 print('Completed:', output_file_name,'with len:',(len(data_arr)))
