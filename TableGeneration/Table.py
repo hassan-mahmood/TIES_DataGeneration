@@ -40,11 +40,11 @@ class Table:
 
     def create_html(self):
         self.create_style()
-        self.create_table()
+        col_span_ids, below_col_span_ids=self.create_table()
         same_row_matrix = self.get_same_matrix(self.same_rows)
         same_col_matrix = self.get_same_matrix(self.same_cols)
         same_cell_matrix = self.get_same_matrix(self.same_cells)
-        return same_row_matrix,same_col_matrix,same_cell_matrix,self.id_count,self.html
+        return same_row_matrix,same_col_matrix,same_cell_matrix,self.id_count,self.html,col_span_ids,below_col_span_ids
 
 
     def create_table(self):
@@ -55,9 +55,10 @@ class Table:
         if (self.no_of_cols > 1):
             self.header_span_indices = self.get_header_col_span_indices()
 
-        self.create_headers()
+        col_span_ids, below_col_span_ids=self.create_headers()
         self.create_rows()
         self.table_type=random.randint(1,5)
+        return col_span_ids,below_col_span_ids
 
 
     def get_header_col_span_indices(self):
@@ -65,7 +66,8 @@ class Table:
         l = []
         for e in range(x, self.no_of_cols-1, 2):
             l.append(x)
-        return random.sample(l, random.randint(0, len(l)))
+        #return random.sample(l, random.randint(0, len(l)))
+        return [0,4]
 
     def define_col(self):
         total=self.words_distribution+self.numbers_distribution
@@ -99,16 +101,23 @@ class Table:
     def enlist_same_rows(self,start_row, end_row):
         self.same_rows.append([i for i in range(start_row, end_row)])
 
+    def remove_ids_from_arr(self,arr,ids):
+        for id in ids:
+            arr.remove(id)
+        return arr
 
     def create_headers(self):
         self.html += "<tr>"
 
         start_row = self.id_count
-
+        col_span_header_flag=False
+        col_span_ids=[]
+        equivalent_below_row=[]
         for c in range(self.no_of_cols):
             self.current_col = c
             # if this column is spanning 2 columns
             if (c in self.header_span_indices):
+                col_span_header_flag=True
                 start_col = self.id_count
                 self.html += "<th colspan=2>" + str(self.get_rand_text(True)) + "</th>"
                 end_col = self.id_count
@@ -117,6 +126,7 @@ class Table:
                 # same elements for the two spanned columns
                 self.current_col += 1
                 self.append_same_cols_and_cells(start_col, end_col)
+                col_span_ids+=[i for i in range(start_col,end_col)]
 
             # if previous column had two column span
             elif (c - 1 in self.header_span_indices):
@@ -130,11 +140,18 @@ class Table:
                 self.append_same_cols_and_cells(start_col, end_col)
 
         end_row = self.id_count
+        if(col_span_header_flag==True):
+            equivalent_below_row = [i for i in range(start_row, end_row)]
+
+
         self.enlist_same_rows(start_row, end_row)
+        start_row = self.id_count
+
+
         self.html += '</tr>'
 
         self.html += "<tr>"
-        start_row = self.id_count
+
         for c in range(self.no_of_cols):
             self.current_col = c
             if (c in self.header_span_indices or c - 1 in self.header_span_indices):
@@ -143,8 +160,14 @@ class Table:
                 end_col = self.id_count
                 self.append_same_cols_and_cells(start_col, end_col)
         end_row = self.id_count
-        self.enlist_same_rows(start_row, end_row)
+        temp=[i for i in range(start_row,end_row)]
+        below_col_span_ids=temp
+        equivalent_below_row+=(temp)
+        self.same_rows.append(self.remove_ids_from_arr(equivalent_below_row,col_span_ids))
+        #self.enlist_same_rows(start_row, end_row)
         self.html += '</tr>'
+
+        return col_span_ids,below_col_span_ids
 
     def create_rows(self):
         for _ in range(self.no_of_rows):

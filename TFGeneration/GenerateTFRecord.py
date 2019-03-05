@@ -30,19 +30,24 @@ class GenerateTFRecord:
         self.unlvocrpath=unlvocrpath
         self.unlvimagespath=unlvimagespath
         self.unlvtablepath=unlvtablepath
-
+        self.create_dir(self.outtfpath)
+        #self.logdir = 'logdir/'
+        #self.create_dir(self.logdir)
+        #logging.basicConfig(filename=os.path.join(self.logdir,'Log.log'), filemode='a+', format='%(name)s - %(levelname)s - %(message)s')
         self.writer=None
-        if(not os.path.exists(self.outtfpath)):
-            os.mkdir(self.outtfpath)
-
         self.num_of_max_vertices=900
         self.max_length_of_word=30
         self.num_data_dims=5
-        self.fileslist=[]
         self.filecounter=1
         self.threadscounter=0
         self.lock=Lock()
+        self.col_span_ids=[]
+        self.below_col_span_ids=[]
         #self.str_to_chars=lambda str:np.chararray(list(str))
+
+    def create_dir(self,fpath):
+        if(not os.path.exists(fpath)):
+            os.mkdir(fpath)
 
     def str_to_int(self,str):
         intsarr=np.array([ord(chr) for chr in str])
@@ -103,45 +108,82 @@ class GenerateTFRecord:
         seq_ex = tf.train.Example(features=all_features)
         return seq_ex
 
-    def generate_tables(self,driver,N_imgs):
+    def generate_tables(self,driver,N_imgs,output_file_name):
 
         arr = np.random.randint(1, 10, (N_imgs, 2))
         data_arr=[]
+        exceptioncount=0
         for i, subarr in enumerate(arr):
             rows = subarr[0]
             cols = subarr[1]
+            rows=10
+            cols=8
             while(True):
                 try:
                     table = Table(rows, cols, self.unlvimagespath, self.unlvocrpath, self.unlvtablepath)
-                    same_row_matrix, same_col_matrix, same_cell_matrix, id_count, html_content = table.create_html()
+                    same_row_matrix, same_col_matrix, same_cell_matrix, id_count, html_content,col_span_ids,below_col_span_ids = table.create_html()
+                    self.col_span_ids=col_span_ids
+                    self.below_col_span_ids=below_col_span_ids
                     im,bboxes = html_to_img(driver, html_content, id_count, 768, 1366)
                     data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes],[im]])
                     break
                     #pickle.dump([same_row_matrix, same_col_matrix, same_cell_matrix, bboxes], infofile)
-                except:
-                    print('\nException')
+                except Exception as e:
+                    exceptioncount+=1
+                    #logging.error("Exception Occured "+str(output_file_name),exc_info=True)
+                    print('\nException No.',exceptioncount,' File: ',str(output_file_name))
                     pass
         if(len(data_arr)!=N_imgs):
-            print('\n Images not equal to the required size.')
+            print('Images not equal to the required size.')
             return None
         return data_arr
 
     def draw_col_matrix(self,im,arr,matrix):
 
+
         no_of_words=len(arr)
-        print('matrix shape',matrix.shape)
-        cv2.imwrite('hassan12.jpg',im)
+        colors = np.random.randint(0, 255, (no_of_words, 3))
+        arr = arr[:, 2:]
+
+        print('arr shape:',arr.shape)
+        print('matrix shape:',matrix.shape)
+        print('colors shape:', colors.shape)
+        print('image shape:',im.shape)
+        print('matrix\n',matrix)
+
+
+
         im=im.astype(np.uint8)
-        arr=arr[:,2:]
         im=np.dstack((im,im,im))
         #im=cv2.cvtColor(im,cv2.COLOR_GRAY2BGR)
-        print(arr)
-        x=2
-        indices=np.argwhere(matrix[x]==1)
-        print('\n\nindices:',indices)
+        x=0
+        indices = np.argwhere(matrix[x] == 1)
         for index in indices:
-            cv2.rectangle(im, (int(arr[index,0]), int(arr[index,1])), (int(arr[index,2]), int(arr[index,3])), (0, 0, 255), 1)
+            cv2.rectangle(im, (int(arr[index, 0]), int(arr[index, 1])),
+                          (int(arr[index, 2]), int(arr[index, 3])),
+                          (0,0,255), 1)
+        # x=1
+        # indices = np.argwhere(matrix[x] == 1)
+        # for index in indices:
+        #     cv2.rectangle(im, (int(arr[index, 0])-3, int(arr[index, 1])-3),
+        #                   (int(arr[index, 2])+3, int(arr[index, 3])+3),
+        #                   (0,255,0), 1)
 
+        for x in self.col_span_ids:
+            indices = np.argwhere(matrix[x] == 1)
+            for index in indices:
+                cv2.rectangle(im, (int(arr[index, 0]) - 6, int(arr[index, 1]) - 6),
+                              (int(arr[index, 2]) + 6, int(arr[index, 3]) + 6),
+                              (255,0,0), 1)
+
+        for x in self.below_col_span_ids:
+            indices = np.argwhere(matrix[x] == 1)
+            for index in indices:
+                cv2.rectangle(im, (int(arr[index, 0]) - 9, int(arr[index, 1]) - 9),
+                              (int(arr[index, 2]) + 9, int(arr[index, 3]) + 9),
+                              (255,0,255), 1)
+
+        #im=cv2.equalizeHist(im)
         cv2.imwrite('hassan22.jpg',im)
 
 
@@ -157,7 +199,7 @@ class GenerateTFRecord:
         print('Started:', output_file_name)
         with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
             try:
-                data_arr=self.generate_tables(driver,filesize)
+                data_arr=self.generate_tables(driver,filesize,output_file_name)
 
                 for subarr in data_arr:
                     arr=subarr[0]
@@ -166,16 +208,17 @@ class GenerateTFRecord:
                     cellmatrix = np.array(arr[2],dtype=np.int64)
                     rowmatrix = np.array(arr[0],dtype=np.int64)
                     bboxes = np.array(arr[3])
-                    #self.draw_col_matrix(img,bboxes, colmatrix)
-                    #driver.stop_client()
-                    #driver.quit()
-                    #0 / 0
+                    self.draw_col_matrix(img,bboxes, rowmatrix)
+                    driver.stop_client()
+                    driver.quit()
+                    0 / 0
                     seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes)
                     writer.write(seq_ex.SerializeToString())
-                print('Completed:', output_file_name)
+                print('Completed:', output_file_name,'with len:',(len(data_arr)))
             except Exception as e:
-               print('Removing ',output_file_name)
-               os.remove(os.path.join(self.outtfpath,output_file_name))
+                print(e)
+                print('Removing',output_file_name)
+                os.remove(os.path.join(self.outtfpath,output_file_name))
 
         driver.stop_client()
         driver.quit()
@@ -185,12 +228,10 @@ class GenerateTFRecord:
 
         starttime=time.time()
         threads=[]
-
-        self.fileslist=self.fileslist
-
+        start=len(os.listdir(self.outtfpath))
         for i in range(self.num_of_tfs):
 
-            proc = Process(target=self.write_tf, args=(self.filesize,str(self.filecounter) + '.tfrecord'))
+            proc = Process(target=self.write_tf, args=(self.filesize,str(self.filecounter+start) + '.tfrecord'))
             threads.append(proc)
             proc.start()
 
