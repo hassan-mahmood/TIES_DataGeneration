@@ -1,199 +1,281 @@
-
 import random
 import numpy as np
 from TableGeneration.Distribution import Distribution
+import time
+
 
 class Table:
-    def __init__(self,no_of_rows,no_of_cols,images_path,ocr_path,table_path):
-        self.no_of_rows=no_of_rows
-        self.no_of_cols=no_of_cols
-        self.distribution=Distribution(images_path,ocr_path,table_path)
+    #Table Type:
+    # 0: regular headers
+    # 1: irregular headers
+
+    #Border Type:
+    # 0: complete border, 1: completely w/o borders, 2: with lines underhead, 3: internal borders
+
+    def __init__(self,no_of_rows,no_of_cols,images_path,ocr_path,gt_table_path,table_type,border_type):
+        self.distribution=Distribution(images_path,ocr_path,gt_table_path)
         self.all_words,self.all_numbers=self.distribution.get_distribution()
         self.words_distribution, self.numbers_distribution = len(self.all_words), len(self.all_numbers)
-        self.html = """<html>"""
-        self.id_count=0
-        self.same_cols=[]
-        self.same_rows=[]
-        self.same_cells=[]
-        self.header_span_indices=[]
-        self.current_col=0
-        self.table_type=1
+        self.no_of_rows=no_of_rows
+        self.no_of_cols=no_of_cols
+        self.table_type=table_type
+        self.border_type=border_type
+        self.idcounter=0
+        #cell_types matrix will have 'n' and 'w' where 'w' means word and 'n' means number
+        self.cell_types=np.chararray(shape=(self.no_of_rows,self.no_of_cols))
+
+        #headers matrix will have 's' and 'h' where 'h' means header and 's' means simple text
+        self.headers=np.chararray(shape=(self.no_of_rows,self.no_of_cols))
+
+        #value at a pos means number of cols to span and -1 will show to skip that cell as part of spanned cols
+        self.col_spans_matrix=np.zeros(shape=(self.no_of_rows,self.no_of_cols))
+
+        #value at a pos means number of rows to span and -1 will show to skip that cell as part of spanned rows
+        self.row_spans_matrix=np.zeros(shape=(self.no_of_rows,self.no_of_cols))
+        #table matrix will have all the generated text (words and numbers)
+        self.missing_cells=[]
+
+        #will keep track of how many top rows and how many left columns are being considered as headers
+        self.header_count={'r':2,'c':0}
+        self.data_matrix = np.empty(shape=(self.no_of_rows,self.no_of_cols),dtype=object)
 
 
 
-    def create_style(self):
-        self.html+="<head><style>"
-        self.html+="html{width:1366px;height:768px;background-color: white;}table{"
+    def get_log_value(self):
+        import math
+        return int(math.log(self.no_of_rows*self.no_of_cols,2))
 
-        #random center align
-        if(random.randint(0,1)==1):
-            self.html+="text-align:center;"
+    def define_col_types(self):
+        total = self.words_distribution + self.numbers_distribution
+        prob_words = self.words_distribution / total
+        prob_numbers = self.numbers_distribution / total
+        # 0: number - 1: word
+        for i,type in enumerate(random.choices(['n','w'], weights=[prob_words, prob_numbers], k=self.no_of_cols)):
+            self.cell_types[:,i]=type
+        #make header to be word only
+        self.cell_types[0:2,:]='w'
 
-        self.html+="""border-collapse:collapse;}td,th{padding:6px;padding-left: 15px;padding-right: 15px;"""
+        # all text to be simple
+        self.headers[:] = 's'
+        #only first row is header (for now)
+        self.headers[0:2, :] = 'h'
 
-        if (random.randint(0, 1) == 1):  # border or non-border
-            self.html += """ border:1px solid black; """
+
+    def generate_random_text(self,type):
+        result=''
+        ids=[]
+        if(type=='n'):
+            out= random.sample(self.all_numbers,1)
         else:
-            self.html+="""border-bottom:1px solid black;"""
+            text_len=random.randint(1,2)
+            out= random.sample(self.all_words,text_len)
 
-        self.html+="}</style></head>"
+        for e in out:
+            result+='<span id='+str(self.idcounter)+'>'+str(e)+' </span>'
+            ids.append(self.idcounter)
+            self.idcounter+=1
+        return result,ids
 
-    def create_html(self):
-        self.create_style()
-        col_span_ids, below_col_span_ids=self.create_table()
-        same_row_matrix = self.get_same_matrix(self.same_rows)
-        same_col_matrix = self.get_same_matrix(self.same_cols)
-        same_cell_matrix = self.get_same_matrix(self.same_cells)
-        return same_row_matrix,same_col_matrix,same_cell_matrix,self.id_count,self.html,col_span_ids,below_col_span_ids
+    # def generate_content(self):
+    #
+    #     for r in range(self.no_of_rows):
+    #         for c in range(self.no_of_cols):
+    #             out=self.generate_random_text(self.cell_types[r,c].decode('utf-8'))
+    #             self.table[r][c]=' '.join(out)
 
+    def add_spans(self):
+        num_header_col_spans=random.randint(1,3)
+        indices=random.sample(range(0,self.no_of_cols),num_header_col_spans)
 
-    def create_table(self):
+        #indices=np.random.randint(0,self.no_of_cols-1,num_header_col_spans)
 
-        self.html+="""<table>"""
+        len_spans=np.random.randint(2,3,len(indices))
+        pass
 
-        self.define_col()
-        if (self.no_of_cols > 1):
-            self.header_span_indices = self.get_header_col_span_indices()
+    def agnostic_span_indices(self,maxvalue,max_lengths=-1):
 
-        col_span_ids, below_col_span_ids=self.create_headers()
-        self.create_rows()
-        self.table_type=random.randint(1,5)
-        return col_span_ids,below_col_span_ids
+        # This function can be used for row and col span indices, both
+        span_indices = []
+        span_lengths = []
+        span_count = random.randint(1, 3)
+        if(span_count>=maxvalue):
+            return [],[]
+        #print('\n\nmaxvalue, spancoujnt',maxvalue,span_count)
+        indices = sorted(random.sample(list(range(0, maxvalue)), span_count))
 
-
-    def get_header_col_span_indices(self):
-        x = random.randint(0, self.no_of_cols)
-        l = []
-        for e in range(x, self.no_of_cols-1, 2):
-            l.append(x)
-        return random.sample(l, random.randint(0, len(l)))
-        #return [0,4]
-
-    def define_col(self):
-        total=self.words_distribution+self.numbers_distribution
-        prob_words=self.words_distribution/total
-        prob_numbers=self.numbers_distribution/total
-        self.col_types=random.choices([0,1], weights=[prob_words,prob_numbers],k=self.no_of_cols)
-        for _ in range(self.no_of_cols): self.same_cols.append([])
-
-    def get_rand_text(self,header):
-        #header is a flag. If true, means it should be text, else conditioned upon the col_types
-        text_len = random.randint(1, 2)
-        if(header==True or self.col_types[self.current_col]==0):
-            text_arr = random.sample(self.all_words, text_len)
-        else:
-            text_arr = random.sample(self.all_numbers, 1)
-        final_text = ''
-        for t in text_arr:
-            final_text += '<span id=\"' + str(self.id_count) + '\">' + t + ' </span>'
-            self.id_count += 1
-        return final_text
-
-    def append_same_cols_and_cells(self,start_col, end_col):
-        try:
-            temp = [i for i in range(start_col, end_col)]
-            self.same_cols[self.current_col] += (temp)
-            self.same_cells.append(temp)
-        except:
-            print('\nError at current_col:',self.current_col)
-            print('\nLen of same_cols:',len(self.same_cols))
-
-    def enlist_same_rows(self,start_row, end_row):
-        self.same_rows.append([i for i in range(start_row, end_row)])
-
-    def remove_ids_from_arr(self,arr,ids):
-        for id in ids:
-            arr.remove(id)
-        return arr
-
-    def create_headers(self):
-        self.html += "<tr>"
-
-        start_row = self.id_count
-        col_span_header_flag=False
-        col_span_ids=[]
-        equivalent_below_row=[]
-        for c in range(self.no_of_cols):
-            self.current_col = c
-            # if this column is spanning 2 columns
-            if (c in self.header_span_indices):
-                col_span_header_flag=True
-                start_col = self.id_count
-                self.html += "<th colspan=2>" + str(self.get_rand_text(True)) + "</th>"
-                end_col = self.id_count
-                self.append_same_cols_and_cells(start_col, end_col)
-
-                # same elements for the two spanned columns
-                self.current_col += 1
-                self.append_same_cols_and_cells(start_col, end_col)
-                col_span_ids+=[i for i in range(start_col,end_col)]
-
-            # if previous column had two column span
-            elif (c - 1 in self.header_span_indices):
+        starting_index = 0
+        for i, index in enumerate(indices):
+            if (starting_index > index):
                 continue
 
-            else:
-                start_col = self.id_count
-                self.html += "<th rowspan=2>" + str(self.get_rand_text(True)) + "</th>"
-                # html += "<th rowspan=1>"++"</th>"
-                end_col = self.id_count
-                self.append_same_cols_and_cells(start_col, end_col)
 
-        end_row = self.id_count
-        if(col_span_header_flag==True):
-            equivalent_below_row = [i for i in range(start_row, end_row)]
+            if(max_lengths==-1):
+                max_lengths=maxvalue-index
+            len_span = random.randint(1, max_lengths)
+
+            if (len_span > 1):
+                span_lengths.append(len_span)
+                span_indices.append(index)
+                starting_index = index + len_span
+        # print('span indices:', span_indices)
+        # print('span lengths:',span_lengths)
+
+        return span_indices, span_lengths
 
 
-        self.enlist_same_rows(start_row, end_row)
-        start_row = self.id_count
+    def make_header_col_spans(self):
+        header_span_indices,header_span_lengths=self.agnostic_span_indices(self.no_of_cols)
+        row_span_indices=[]
+        for index,length in zip(header_span_indices,header_span_lengths):
+            #0th row as for header
+            self.col_spans_matrix[0,index]=length
+            self.col_spans_matrix[0,index+1:index+length]=-1
+            row_span_indices+=list(range(index,index+length))
+        b=list(filter(lambda x: x not in row_span_indices, list(range(self.no_of_cols))))
+        self.row_spans_matrix[0,b]=2
+        self.row_spans_matrix[1,b]=-1
+        if(self.table_type==1): #if irregular
+            self.create_irregular_header()
 
 
-        self.html += '</tr>'
+    def create_irregular_header(self):
+        colnumber=0
+        #random row spans
+        #-2 to exclude top 2 rows of header and -1 so it won't occupy the complete column
+        span_indices, span_lengths = self.agnostic_span_indices(self.no_of_rows-2)
+        span_indices=[x+2 for x in span_indices]
 
-        self.html += "<tr>"
+        for index, length in zip(span_indices, span_lengths):
+            # 0th row as for header
+            self.row_spans_matrix[index,colnumber]=length
+            self.row_spans_matrix[index+1:index+length,colnumber]=-1
+        self.headers[:,colnumber]='h'
+        self.header_count['c']+=1
 
-        for c in range(self.no_of_cols):
-            self.current_col = c
-            if (c in self.header_span_indices or c - 1 in self.header_span_indices):
-                start_col = self.id_count
-                self.html += "<th>" + str(self.get_rand_text(True)) + "</th>"
-                end_col = self.id_count
-                self.append_same_cols_and_cells(start_col, end_col)
-        end_row = self.id_count
-        temp=[i for i in range(start_row,end_row)]
-        below_col_span_ids=temp
-        equivalent_below_row+=(temp)
-        self.same_rows.append(self.remove_ids_from_arr(equivalent_below_row,col_span_ids))
-        #self.enlist_same_rows(start_row, end_row)
-        self.html += '</tr>'
 
-        return col_span_ids,below_col_span_ids
 
-    def create_rows(self):
-        for _ in range(self.no_of_rows):
-            n_gaib = random.randint(0, self.no_of_cols // 2)
-            gaib_indices = random.sample(range(self.no_of_cols), n_gaib)
-            self.html += "<tr>"
-            start_row = self.id_count
+    def generate_missing_cells(self):
+        missing=np.random.random(size=(self.get_log_value(),2))
+        missing[:,0]=(self.no_of_rows - 1 - self.header_count['r'])*missing[:,0]+self.header_count['r']
+        missing[:, 1] = (self.no_of_rows -1 - self.header_count['c']) * missing[:, 1] + self.header_count['c']
+        for arr in missing:
+            self.missing_cells.append((int(arr[0]), int(arr[1])))
+
+    def create_style(self):
+        style = "<head><style>"
+        style += "html{width:1366px;height:768px;background-color: white;}table{"
+
+        # random center align
+        if (random.randint(0, 1) == 1):
+            style += "text-align:center;"
+
+        style += """border-collapse:collapse;}td,th{padding:6px;padding-left: 15px;padding-right: 15px;"""
+
+        if(self.border_type==0):
+            style += """ border:1px solid black;} """
+        elif(self.border_type==2):
+            style += """border-bottom:1px solid black;}"""
+        elif(self.border_type==3):
+            style+="""}th{border-bottom: 1px solid black;}table tr td:first-child, 
+                        table tr th:first-child {border-left: 0;}
+                        td,th{padding:6px;padding-left: 15px;padding-right: 15px;
+                        border-left: 1px solid black;}
+                        th{border-bottom: 1px solid black;}"""
+
+
+        style += "</style></head>"
+        return style
+
+    def create_html(self):
+
+        temparr=['td', 'th']
+        html="""<html>"""
+        html+=self.create_style()
+        html+="""<body><table>"""
+        for r in range(self.no_of_rows):
+            html+='<tr>'
             for c in range(self.no_of_cols):
-                self.current_col = c
-                self.html += "<td>"
-                if (c not in gaib_indices):
-                    start_col = self.id_count
-                    self.html += str(self.get_rand_text(False))
-                    end_col = self.id_count
-                    self.append_same_cols_and_cells(start_col, end_col)
-                else:
-                    self.html += ""
-                self.html += "</td>"
-            end_row = self.id_count
-            self.enlist_same_rows(start_row, end_row)
-            self.html += '</tr>'
-        self.html += """</table></html>"""
+                if(r,c) in self.missing_cells:
+                    html+="""<td></td>"""
+                    continue
+                row_span_value=int(self.row_spans_matrix[r,c])
+                col_span_value=int(self.col_spans_matrix[r,c])
+                if (row_span_value == -1):
+                    self.data_matrix[r,c] = self.data_matrix[r-1,c]
+                    continue
 
-    def get_same_matrix(self,same_data):
-        same_matrix = np.zeros(shape=(self.id_count, self.id_count))
-        for row in same_data:
-            for element in row:
-                same_matrix[element, np.array(row)] = 1
-        return same_matrix
+                htmlcol=temparr[['s','h'].index(self.headers[r][c].decode('utf-8'))]
+
+                if(row_span_value!=0):
+                    html+='<'+htmlcol+' rowspan=\"'+str(row_span_value)+'"'
+                else:
+                    if(col_span_value==-1):
+                        self.data_matrix[r,c] = self.data_matrix[r,c-1]
+                        continue
+
+                    html+='<'+htmlcol+""" colspan="""+str(col_span_value)
+
+                out,ids = self.generate_random_text(self.cell_types[r, c].decode('utf-8'))
+                html+='>'+out+'</'+htmlcol+'>'
+
+                self.data_matrix[r,c]=ids
+
+                #html+='<'+htmlcol+'>'+''.join(out)+'</'+htmlcol+'>'
+            html += '</tr>'
+
+        html+="""</table></body></html>"""
+        return html
+
+    def create_matrix(self,arr,ids):
+        matrix=np.zeros(shape=(ids,ids))
+        for subarr in arr:
+            for element in subarr:
+                matrix[element,subarr]=1
+        return matrix
+
+    def create_col_matrix(self):
+        all_cols=[]
+
+        for col in range(self.no_of_cols):
+            single_col = []
+            for subarr in self.data_matrix[:,col]:
+                if(subarr is not None):
+                    single_col+=subarr
+            all_cols.append(single_col)
+        return self.create_matrix(all_cols,self.idcounter)
+
+    def create_row_matrix(self):
+        all_rows=[]
+
+        for row in range(self.no_of_rows):
+            single_row=[]
+            for subarr in self.data_matrix[row,:]:
+                if(subarr is not None):
+                    single_row+=subarr
+            all_rows.append(single_row)
+        return self.create_matrix(all_rows,self.idcounter)
+
+    def create_cell_matrix(self):
+        all_cells=[]
+        for row in range(self.no_of_rows):
+            for col in range(self.no_of_cols):
+                if(self.data_matrix[row,col] is not None):
+                    all_cells.append(self.data_matrix[row,col])
+        return self.create_matrix(all_cells,self.idcounter)
+
+
+    def create(self):
+        self.define_col_types()
+        self.make_header_col_spans()
+        self.generate_missing_cells()
+        html=self.create_html()
+        cells_matrix,cols_matrix,rows_matrix=self.create_cell_matrix(),\
+                                             self.create_col_matrix(),\
+                                             self.create_row_matrix()
+        return cells_matrix,cols_matrix,rows_matrix,self.idcounter,html
+
+        #
+        # # self.add_spans()
+        # f=open('file.html','w')
+        # f.write(html)
+        # f.close()

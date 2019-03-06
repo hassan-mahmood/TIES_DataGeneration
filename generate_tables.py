@@ -1,17 +1,6 @@
-from TableGeneration.Distribution import Distribution
-from TableGeneration.Table import Table
-from multiprocessing import Process
-import time
-import random
 import argparse
-from TableGeneration.tools import *
-import os
-import pickle
-import numpy as np
-from tqdm import tqdm
-from selenium.webdriver import Firefox
-from selenium.webdriver import PhantomJS
-
+import random
+from TableGeneration.Table import Table
 parser=argparse.ArgumentParser()
 
 parser.add_argument('--imagespath',default='../Table_Detection_Dataset/unlv/train/images')
@@ -21,61 +10,31 @@ parser.add_argument('--cols',default=0)
 parser.add_argument('--rows',default=0)
 parser.add_argument('--N',default=2,type=int,help='Number of images to generate')
 parser.add_argument('--outpath',help='main output directory to store output images',default='gentables/')
-parser.add_argument('--distributionpath'default='distribution_pickle')
+parser.add_argument('--distributionpath',default='distribution_pickle')
 parser.add_argument('--threads',type=int,default=4)
 args=parser.parse_args()
 
-#random.seed(a=None,version=2)
-import time
+
+cols=random.randint(1,7)
+rows=random.randint(2,10)
+rows=8
+cols=7
 
 
-def create_dir(path):
-    if (not os.path.exists(path)):
-        os.mkdir(path)
+print('rows:',rows,' cols:',cols)
+
+# Table Types:
+# 0: regular headers , 1: irregular headers
+
+# Border Types:
+# 0: complete border, 1: completely w/o borders, 2: with lines underhead, 3: internal borders
 
 
-def generate(outpath):
+tables={'types':[0,1],'probs':[0.5,0.5]}
+borders={'types':[0,1,2,3],'probs':[0.1,0.2,0.3,0.4]}
 
-    arr=np.random.randint(1,10,(args.N,2))
-
-    opts = Options()
-    opts.set_headless()
-    assert opts.headless
-    #driver=PhantomJS()
-    driver = Firefox(options=opts)
-
-    for i,subarr in enumerate(arr):
-        rows=subarr[0]
-        cols=subarr[1]
-        try:
-            table=Table(rows,cols,args.imagespath,args.ocrpath,args.tablepath)
-            same_row_matrix,same_col_matrix,same_cell_matrix,id_count,html_content=table.create_html()
-            bboxes=html_to_img(driver,html_content,os.path.join(outpath,str(i)+'.png'),id_count,768,1366)
-            pickle.dump([same_row_matrix,same_col_matrix,same_cell_matrix,bboxes],infofile)
-        except:
-            print('\nException')
-            pass
-
-    driver.stop_client()
-    driver.quit()
-
-create_dir(args.outpath)
-
-startime=time.time()
-procs=[]
-
-#for storing html files
-
-for i in range(args.threads):
-    outpath=os.path.join(args.outpath+str(i)+'folder')
-    proc=Process(target=generate,args=(outpath,))
-    procs.append(proc)
-    proc.start()
-
-for proc in procs:
-    proc.join()
-
-print(time.time()-startime)
-
-
-
+table_type=random.choices(tables['types'],weights=tables['probs'])[0]
+border_type=random.choices(borders['types'],weights=borders['probs'])[0]
+print('border type:',border_type)
+table=Table(rows,cols,args.imagespath,args.ocrpath,args.tablepath,table_type,border_type)
+htmlcontent=table.create()

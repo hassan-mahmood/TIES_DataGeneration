@@ -29,14 +29,15 @@ def html_to_img(driver,html_content,id_count,max_height,max_width):
         driver.get("data:text/html;charset=utf-8," + html_content)
         #driver.execute_script("document.write('{}')".format(json.dumps(htmlcode)))
 
-        element = WebDriverWait(driver, 500).until(EC.presence_of_element_located((By.ID, '1')))
+        element = WebDriverWait(driver, 500).until(EC.presence_of_element_located((By.ID, '0')))
 
         WebDriverWait(driver, 500).until(EC.visibility_of(element))
 
 
         bboxes=[]
         for id in range(id_count):
-            e = driver.find_element_by_id(str(id))
+            #e = driver.find_element_by_id(str(id))
+            e = WebDriverWait(driver, 500).until(EC.presence_of_element_located((By.ID, str(id))))
             txt=e.text.strip()
             lentext=len(txt)
             loc = e.location
