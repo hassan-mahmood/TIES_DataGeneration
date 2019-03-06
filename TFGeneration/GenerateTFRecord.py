@@ -4,6 +4,7 @@ import traceback
 import cv2
 import os
 import shutil
+import string
 import pickle
 from tqdm import tqdm
 from multiprocessing import Process,Lock
@@ -187,7 +188,7 @@ class GenerateTFRecord:
         cv2.imwrite('hassan22.jpg',im)
 
 
-    def write_tf(self,filesize,output_file_name):
+    def write_tf(self,filesize,start):
 
         options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
         opts = Options()
@@ -195,30 +196,36 @@ class GenerateTFRecord:
         assert opts.headless
         # driver=PhantomJS()
         driver = Firefox(options=opts)
-        starttime = time.time()
-        print('Started:', output_file_name)
-        with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
-            try:
-                data_arr=self.generate_tables(driver,filesize,output_file_name)
-                for subarr in data_arr:
-                    arr=subarr[0]
-                    img=np.asarray(subarr[1][0],np.int64)[:,:,0]
-                    colmatrix = np.array(arr[1],dtype=np.int64)
-                    cellmatrix = np.array(arr[2],dtype=np.int64)
-                    rowmatrix = np.array(arr[0],dtype=np.int64)
-                    bboxes = np.array(arr[3])
-                    # self.draw_col_matrix(img,bboxes, rowmatrix)
-                    # driver.stop_client()
-                    # driver.quit()
-                    # 0 / 0
-                    seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes)
-                    writer.write(seq_ex.SerializeToString())
-                print('Completed in ',time.time()-starttime,' ' ,output_file_name,'with len:',(len(data_arr)))
+        while(True):
+            starttime = time.time()
 
-            except Exception as e:
-                traceback.print_exc()
-                print('Removing',output_file_name)
-                os.remove(os.path.join(self.outtfpath,output_file_name))
+            self.lock.acquire()
+            output_file_name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=20)) + '.tfrecord'
+            print('Started:', output_file_name)
+            self.lock.release()
+
+            with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
+                try:
+                    data_arr=self.generate_tables(driver,filesize,output_file_name)
+                    for subarr in data_arr:
+                        arr=subarr[0]
+                        img=np.asarray(subarr[1][0],np.int64)[:,:,0]
+                        colmatrix = np.array(arr[1],dtype=np.int64)
+                        cellmatrix = np.array(arr[2],dtype=np.int64)
+                        rowmatrix = np.array(arr[0],dtype=np.int64)
+                        bboxes = np.array(arr[3])
+                        # self.draw_col_matrix(img,bboxes, rowmatrix)
+                        # driver.stop_client()
+                        # driver.quit()
+                        # 0 / 0
+                        seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes)
+                        writer.write(seq_ex.SerializeToString())
+                    print('Completed in ',time.time()-starttime,' ' ,output_file_name,'with len:',(len(data_arr)))
+
+                except Exception as e:
+                    traceback.print_exc()
+                    print('Removing',output_file_name)
+                    os.remove(os.path.join(self.outtfpath,output_file_name))
 
         driver.stop_client()
         driver.quit()
@@ -229,23 +236,12 @@ class GenerateTFRecord:
         starttime=time.time()
         threads=[]
         start=len(os.listdir(self.outtfpath))
-        for i in range(self.num_of_tfs):
-
-
-            proc = Process(target=self.write_tf, args=(self.filesize,str(self.filecounter+start) + '.tfrecord'))
-            threads.append(proc)
+        for _ in range(max_threads):
+            proc = Process(target=self.write_tf, args=(self.filesize, start))
             proc.start()
+            threads.append(proc)
 
-            self.lock.acquire()
-            self.threadscounter+=1
-            self.filecounter+=1
-            self.lock.release()
-
-
-            if(self.threadscounter>=max_threads):
-                for proc in threads:
-                    proc.join()
-                self.threadscounter=0
-
+        for proc in threads:
+            proc.join()
 
         print(time.time()-starttime)
