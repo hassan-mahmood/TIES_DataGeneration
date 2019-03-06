@@ -11,7 +11,7 @@ from multiprocessing import Process,Lock
 import time
 from TableGeneration.Distribution import Distribution
 from TableGeneration.Table import Table
-from multiprocessing import Process
+from multiprocessing import Process,Pool,cpu_count
 import time
 import random
 import argparse
@@ -27,6 +27,16 @@ import warnings
 def warn(*args,**kwargs):
     pass
 
+class Logger:
+    def __init__(self):
+        pass
+        #self.file=open('logtxt.txt','a+')
+
+    def write(self,txt):
+        file = open('logtxt.txt', 'a+')
+        file.write(txt)
+        file.close()
+
 class GenerateTFRecord:
     def __init__(self, outpath,filesize,tfcount,unlvimagespath,unlvocrpath,unlvtablepath):
         self.outtfpath = outpath
@@ -36,6 +46,8 @@ class GenerateTFRecord:
         self.unlvimagespath=unlvimagespath
         self.unlvtablepath=unlvtablepath
         self.create_dir(self.outtfpath)
+        self.pool=Pool(processes=cpu_count())
+        self.logger=Logger()
         #self.logdir = 'logdir/'
         #self.create_dir(self.logdir)
         #logging.basicConfig(filename=os.path.join(self.logdir,'Log.log'), filemode='a+', format='%(name)s - %(levelname)s - %(message)s')
@@ -48,6 +60,7 @@ class GenerateTFRecord:
         self.threadscounter=0
         self.tables_categories = {'types': [0, 1], 'probs': [0.5, 0.5]}
         self.borders_categories = {'types': [0, 1, 2, 3], 'probs': [0.1, 0.2, 0.3, 0.4]}
+        self.current_files_list=[]
         #self.str_to_chars=lambda str:np.chararray(list(str))
 
     def create_dir(self,fpath):
@@ -124,6 +137,7 @@ class GenerateTFRecord:
 
             rows = subarr[0]
             cols = subarr[1]
+            exceptcount=0
             while(True):
                 try:
                     table_type = random.choices(self.tables_categories['types'], weights=self.tables_categories['probs'])[0]
@@ -132,21 +146,23 @@ class GenerateTFRecord:
 
                     start1=time.time()
                     same_cell_matrix,same_col_matrix,same_row_matrix, id_count, html_content= table.create()
+
                     #print('table creation time:',time.time()-start1)
 
                     start2=time.time()
+
                     im,bboxes = html_to_img(driver, html_content, id_count, 768, 1366)
                     #print('html to img time:',time.time()-start2)
                     data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes],[im]])
-
+                    #cv2.imwrite(output_file_name.replace('.tfrecord','.png'),im)
                     break
                     #pickle.dump([same_row_matrix, same_col_matrix, same_cell_matrix, bboxes], infofile)
                 except Exception as e:
-                    exceptioncount+=1
-                    if(exceptioncount>30):
+                    exceptcount+=1
+                    if(exceptioncount>10):
                         return None
-                    traceback.print_exc()
-                    print('\nException No.', exceptioncount, ' File: ', str(output_file_name))
+                    #traceback.print_exc()
+                    #print('\nException No.', exceptioncount, ' File: ', str(output_file_name))
                     #logging.error("Exception Occured "+str(output_file_name),exc_info=True)
         if(len(data_arr)!=N_imgs):
             print('Images not equal to the required size.')
@@ -195,42 +211,43 @@ class GenerateTFRecord:
         cv2.imwrite('hassan22.jpg',im)
 
 
-    def write_tf(self,filesize,start):
+    def write_tf(self,filesize,threadnum):
 
         options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
         opts = Options()
         opts.set_headless()
         assert opts.headless
-        # driver=PhantomJS()
+        #driver=PhantomJS()
         driver = Firefox(options=opts)
         while(True):
             starttime = time.time()
 
             output_file_name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=20)) + '.tfrecord'
-            print('Started:', output_file_name)
+            print('Thread: ',threadnum,' Started:', output_file_name)
 
-            with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
-                try:
-                    data_arr=self.generate_tables(driver,filesize,output_file_name)
-                    for subarr in data_arr:
-                        arr=subarr[0]
-                        img=np.asarray(subarr[1][0],np.int64)[:,:,0]
-                        colmatrix = np.array(arr[1],dtype=np.int64)
-                        cellmatrix = np.array(arr[2],dtype=np.int64)
-                        rowmatrix = np.array(arr[0],dtype=np.int64)
-                        bboxes = np.array(arr[3])
-                        # self.draw_col_matrix(img,bboxes, rowmatrix)
-                        # driver.stop_client()
-                        # driver.quit()
-                        # 0 / 0
-                        seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes)
-                        writer.write(seq_ex.SerializeToString())
-                    print('Completed in ',time.time()-starttime,' ' ,output_file_name,'with len:',(len(data_arr)))
+            data_arr = self.generate_tables(driver, filesize, output_file_name)
+            #print('\nThread: ',threadnum,'data arr returned with :',len(data_arr))
+            if(data_arr is not None):
+                if(len(data_arr)==filesize):
+                    with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
+                        try:
+                            for subarr in data_arr:
+                                arr=subarr[0]
 
-                except Exception as e:
-                    traceback.print_exc()
-                    print('Removing',output_file_name)
-                    os.remove(os.path.join(self.outtfpath,output_file_name))
+                                img=np.asarray(subarr[1][0],np.int64)[:,:,0]
+                                colmatrix = np.array(arr[1],dtype=np.int64)
+                                cellmatrix = np.array(arr[2],dtype=np.int64)
+                                rowmatrix = np.array(arr[0],dtype=np.int64)
+                                bboxes = np.array(arr[3])
+                                seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes)
+                                writer.write(seq_ex.SerializeToString())
+                            print('Thread :',threadnum,' Completed in ',time.time()-starttime,' ' ,output_file_name,'with len:',(len(data_arr)))
+
+                        except Exception as e:
+                            print(e)
+                            self.logger.write(traceback.format_exc())
+                            # print('Thread :',threadnum,' Removing',output_file_name)
+                            # os.remove(os.path.join(self.outtfpath,output_file_name))
 
         driver.stop_client()
         driver.quit()
@@ -240,13 +257,11 @@ class GenerateTFRecord:
 
         starttime=time.time()
         threads=[]
-        start=len(os.listdir(self.outtfpath))
-        for _ in range(max_threads):
-            proc = Process(target=self.write_tf, args=(self.filesize, start))
+        for threadnum in range(max_threads):
+            proc = Process(target=self.write_tf, args=(self.filesize, threadnum,))
             proc.start()
             threads.append(proc)
 
         for proc in threads:
             proc.join()
-
         print(time.time()-starttime)
