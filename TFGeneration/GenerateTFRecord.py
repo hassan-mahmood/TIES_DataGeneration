@@ -135,6 +135,8 @@ class GenerateTFRecord:
                     #pickle.dump([same_row_matrix, same_col_matrix, same_cell_matrix, bboxes], infofile)
                 except Exception as e:
                     exceptioncount+=1
+                    if(exceptioncount>30):
+                        return None
                     traceback.print_exc()
                     print('\nException No.', exceptioncount, ' File: ', str(output_file_name))
                     #logging.error("Exception Occured "+str(output_file_name),exc_info=True)
