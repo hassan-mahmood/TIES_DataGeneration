@@ -129,9 +129,16 @@ class GenerateTFRecord:
                     table_type = random.choices(self.tables_categories['types'], weights=self.tables_categories['probs'])[0]
                     border_type = random.choices(self.borders_categories['types'], weights=self.borders_categories['probs'])[0]
                     table = Table(rows,cols,self.unlvimagespath,self.unlvocrpath,self.unlvtablepath,table_type,border_type)
+
+                    start1=time.time()
                     same_cell_matrix,same_col_matrix,same_row_matrix, id_count, html_content= table.create()
+                    #print('table creation time:',time.time()-start1)
+
+                    start2=time.time()
                     im,bboxes = html_to_img(driver, html_content, id_count, 768, 1366)
+                    #print('html to img time:',time.time()-start2)
                     data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes],[im]])
+
                     break
                     #pickle.dump([same_row_matrix, same_col_matrix, same_cell_matrix, bboxes], infofile)
                 except Exception as e:
@@ -199,10 +206,8 @@ class GenerateTFRecord:
         while(True):
             starttime = time.time()
 
-            self.lock.acquire()
             output_file_name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=20)) + '.tfrecord'
             print('Started:', output_file_name)
-            self.lock.release()
 
             with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
                 try:

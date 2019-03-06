@@ -9,7 +9,7 @@ parser.add_argument('--outpath',default='tfrecords/')
 parser.add_argument('--tfcount',type=int,default=1)
 parser.add_argument('--imagespath',default='../Table_Detection_Dataset/unlv/train/images')
 parser.add_argument('--ocrpath',default='../Table_Detection_Dataset/unlv/unlv_xml_ocr')
-parser.add_argument('--tablepath',default='../Table_Detection_Dataset/unlv/unlv_xml_gt')
+parser.add_argument('--tablepath',default='../Table_Detection_Dataset/unlv/unlv _xml_gt')
 args=parser.parse_args()
 
 
