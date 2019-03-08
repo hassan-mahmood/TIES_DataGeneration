@@ -12,14 +12,16 @@ class Table:
     #Border Type:
     # 0: complete border, 1: completely w/o borders, 2: with lines underhead, 3: internal borders
 
-    def __init__(self,no_of_rows,no_of_cols,images_path,ocr_path,gt_table_path,table_type,border_type):
+    def __init__(self,no_of_rows,no_of_cols,images_path,ocr_path,gt_table_path,table_type,border_type,difficultylevel):
         self.distribution=Distribution(images_path,ocr_path,gt_table_path)
-        self.all_words,self.all_numbers=self.distribution.get_distribution()
-        self.words_distribution, self.numbers_distribution = len(self.all_words), len(self.all_numbers)
+        #self.distribution_data=self.distribution.get_distribution()
+        self.all_words,self.all_numbers,self.all_others=self.distribution.get_distribution()
+        #self.words_distribution, self.numbers_distribution,self.others_distribution = len(self.all_words), len(self.all_numbers)
         self.no_of_rows=no_of_rows
         self.no_of_cols=no_of_cols
         self.table_type=table_type
         self.border_type=border_type
+        self.difficultylevel=difficultylevel
         self.idcounter=0
         #cell_types matrix will have 'n' and 'w' where 'w' means word and 'n' means number
         self.cell_types=np.chararray(shape=(self.no_of_rows,self.no_of_cols))
@@ -46,11 +48,17 @@ class Table:
         return int(math.log(self.no_of_rows*self.no_of_cols,2))
 
     def define_col_types(self):
-        total = self.words_distribution + self.numbers_distribution
-        prob_words = self.words_distribution / total
-        prob_numbers = self.numbers_distribution / total
+        len_all_words=len(self.all_words)
+        len_all_numbers=len(self.all_numbers)
+        len_all_others=len(self.all_others)
+
+        total = len_all_words+len_all_numbers+len_all_others
+
+        prob_words = len_all_words / total
+        prob_numbers = len_all_numbers / total
+        prob_others=len_all_others/total
         # 0: number - 1: word
-        for i,type in enumerate(random.choices(['n','w'], weights=[prob_words, prob_numbers], k=self.no_of_cols)):
+        for i,type in enumerate(random.choices(['n','w','r'], weights=[prob_numbers,prob_words,prob_others], k=self.no_of_cols)):
             self.cell_types[:,i]=type
         #make header to be word only
         self.cell_types[0:2,:]='w'
@@ -66,6 +74,8 @@ class Table:
         ids=[]
         if(type=='n'):
             out= random.sample(self.all_numbers,1)
+        elif(type=='r'):
+            out=random.sample(self.all_others,1)
         else:
             text_len=random.randint(1,2)
             out= random.sample(self.all_words,text_len)
@@ -83,14 +93,6 @@ class Table:
     #             out=self.generate_random_text(self.cell_types[r,c].decode('utf-8'))
     #             self.table[r][c]=' '.join(out)
 
-    def add_spans(self):
-        num_header_col_spans=random.randint(1,3)
-        indices=random.sample(range(0,self.no_of_cols),num_header_col_spans)
-
-        #indices=np.random.randint(0,self.no_of_cols-1,num_header_col_spans)
-
-        len_spans=np.random.randint(2,3,len(indices))
-        pass
 
     def agnostic_span_indices(self,maxvalue,max_lengths=-1):
 
@@ -124,7 +126,9 @@ class Table:
 
 
     def make_header_col_spans(self):
-        header_span_indices,header_span_lengths=self.agnostic_span_indices(self.no_of_cols)
+        header_span_indices,header_span_lengths=[],[]
+        if(self.difficultylevel>=3):
+            header_span_indices, header_span_lengths = self.agnostic_span_indices(self.no_of_cols)
         row_span_indices=[]
         for index,length in zip(header_span_indices,header_span_lengths):
             #0th row as for header
@@ -134,6 +138,7 @@ class Table:
         b=list(filter(lambda x: x not in row_span_indices, list(range(self.no_of_cols))))
         self.row_spans_matrix[0,b]=2
         self.row_spans_matrix[1,b]=-1
+
         if(self.table_type==1): #if irregular
             self.create_irregular_header()
 
@@ -176,11 +181,11 @@ class Table:
         elif(self.border_type==2):
             style += """border-bottom:1px solid black;}"""
         elif(self.border_type==3):
-            style+="""}th{border-bottom: 1px solid black;}table tr td:first-child, 
-                        table tr th:first-child {border-left: 0;}
-                        td,th{padding:6px;padding-left: 15px;padding-right: 15px;
-                        border-left: 1px solid black;}
-                        th{border-bottom: 1px solid black;}"""
+            style+="""}table tr td:first-child, 
+                       table tr th:first-child {border-left: 0;}
+                       th,td{padding:6px;padding-left: 15px;padding-right: 15px;
+                       border-left: 1px solid black;}
+                       th{border-bottom: 1px solid black;}"""
 
 
         style += "</style></head>"
@@ -267,7 +272,7 @@ class Table:
     def create(self):
         self.define_col_types()
         self.make_header_col_spans()
-        self.generate_missing_cells()
+        #self.generate_missing_cells()
         html=self.create_html()
         cells_matrix,cols_matrix,rows_matrix=self.create_cell_matrix(),\
                                              self.create_col_matrix(),\

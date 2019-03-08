@@ -1,4 +1,4 @@
-
+import traceback
 
 
 from selenium.webdriver.common.by import By
@@ -29,11 +29,10 @@ def html_to_img(driver,html_content,id_count,max_height,max_width):
     counter=1
     while(True):
         try:
-            starttime=time.time()
             driver.get("data:text/html;charset=utf-8," + html_content)
             #driver.execute_script("document.write('{}')".format(json.dumps(htmlcode)))
 
-            #element = WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.ID, '0')))
+            element = WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.ID, '0')))
 
             #WebDriverWait(driver, 1).until(EC.visibility_of(element))
 
@@ -62,9 +61,12 @@ def html_to_img(driver,html_content,id_count,max_height,max_width):
 
             #im.save(outimgpath,dpi=(600,600))
             return im,bboxes
-        except:
+        except Exception as e:
             counter+=1
             if(counter==10):
+                raise e
                 #print('\nraising exception')
-                raise Exception("Error occurred at line 68 inside tools.py")
+                #traceback.print_exc()
+                #raise Exception("Error occurred at line 68 inside tools.py")
+
             continue

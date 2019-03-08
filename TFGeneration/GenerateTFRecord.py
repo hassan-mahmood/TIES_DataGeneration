@@ -3,26 +3,19 @@ import numpy as np
 import traceback
 import cv2
 import os
-import shutil
 import string
 import pickle
-from tqdm import tqdm
 from multiprocessing import Process,Lock
-import time
-from TableGeneration.Distribution import Distribution
 from TableGeneration.Table import Table
 from multiprocessing import Process,Pool,cpu_count
-import time
 import random
 import argparse
 from TableGeneration.tools import *
-import os
-import pickle
 import numpy as np
-from tqdm import tqdm
 from selenium.webdriver import Firefox
 from selenium.webdriver import PhantomJS
 import warnings
+from TableGeneration.Transformation import *
 
 def warn(*args,**kwargs):
     pass
@@ -38,7 +31,7 @@ class Logger:
         file.close()
 
 class GenerateTFRecord:
-    def __init__(self, outpath,filesize,tfcount,unlvimagespath,unlvocrpath,unlvtablepath):
+    def __init__(self, outpath,filesize,tfcount,unlvimagespath,unlvocrpath,unlvtablepath,difficultylevel,writetoimg):
         self.outtfpath = outpath
         self.filesize=filesize
         self.num_of_tfs=tfcount
@@ -47,6 +40,8 @@ class GenerateTFRecord:
         self.unlvtablepath=unlvtablepath
         self.create_dir(self.outtfpath)
         self.pool=Pool(processes=cpu_count())
+        self.difficultylevel=difficultylevel
+        self.writetoimg=writetoimg
         self.logger=Logger()
         #self.logdir = 'logdir/'
         #self.create_dir(self.logdir)
@@ -55,8 +50,18 @@ class GenerateTFRecord:
         self.lock=Lock()
         self.num_of_max_vertices=900
         self.max_length_of_word=30
+        self.row_min=3
+        self.row_max=15
+        self.col_min=3
+        self.col_max=9
+        self.minshearval=-0.1
+        self.maxshearval=0.1
+        self.minrotval=-0.01
+        self.maxrotval=0.01
         self.num_data_dims=5
         self.filecounter=1
+        self.max_height=768
+        self.max_width=1366
         self.threadscounter=0
         self.tables_categories = {'types': [0, 1], 'probs': [0.5, 0.5]}
         self.borders_categories = {'types': [0, 1, 2, 3], 'probs': [0.1, 0.2, 0.3, 0.4]}
@@ -99,7 +104,7 @@ class GenerateTFRecord:
         lengths_arr = self.convert_to_int(arr[:, 0])
         vertex_features=np.zeros(shape=(self.num_of_max_vertices,self.num_data_dims),dtype=np.int64)
         lengths_arr=np.array(lengths_arr).reshape(len(lengths_arr),-1)
-        sample_out=np.concatenate((arr[:,2:],lengths_arr),axis=1)
+        sample_out=np.array(np.concatenate((arr[:,2:],lengths_arr),axis=1))
         vertex_features[:no_of_words,:]=sample_out
 
 
@@ -128,36 +133,59 @@ class GenerateTFRecord:
 
     def generate_tables(self,driver,N_imgs,output_file_name):
         #np.random.seed(time.time())
-        arr = np.random.randint(1, 10, (N_imgs, 2))
+        #arr = np.random.randint(1, self.max_rows, (N_imgs, 2))
+        row_col_min=[self.row_min,self.col_min]
+        row_col_max=[self.row_max,self.col_max]
+        arr = np.random.uniform(low=row_col_min, high=row_col_max, size=(N_imgs, 2))
 
         arr[:,0]=arr[:,0]+2
         data_arr=[]
         exceptioncount=0
         for i, subarr in enumerate(arr):
 
-            rows = subarr[0]
-            cols = subarr[1]
+            rows = int(round(subarr[0]))
+            cols = int(round(subarr[1]))
+
             exceptcount=0
             while(True):
                 try:
-                    table_type = random.choices(self.tables_categories['types'], weights=self.tables_categories['probs'])[0]
-                    border_type = random.choices(self.borders_categories['types'], weights=self.borders_categories['probs'])[0]
-                    table = Table(rows,cols,self.unlvimagespath,self.unlvocrpath,self.unlvtablepath,table_type,border_type)
+                    table_type=0
+                    border_type=0
+                    apply_shear=False
+                    if(self.difficultylevel>=3):
+                        table_type = random.choices(self.tables_categories['types'], weights=self.tables_categories['probs'])[0]
+                    if(self.difficultylevel>=2):
+                        border_type = random.choices(self.borders_categories['types'], weights=self.borders_categories['probs'])[0]
+                    if(self.difficultylevel==4):
+                        apply_shear=random.choices([True,False])
 
-                    start1=time.time()
+                    table = Table(rows,cols,self.unlvimagespath,self.unlvocrpath,self.unlvtablepath,table_type,border_type,self.difficultylevel)
+
+
                     same_cell_matrix,same_col_matrix,same_row_matrix, id_count, html_content= table.create()
-
                     #print('table creation time:',time.time()-start1)
 
-                    start2=time.time()
 
-                    im,bboxes = html_to_img(driver, html_content, id_count, 768, 1366)
+                    im,bboxes = html_to_img(driver, html_content, id_count, self.max_height, self.max_width)
+                    # apply_shear: bool - True: Apply Transformation, False: No Transformation
+
+                    if(apply_shear):
+                        shearval = np.random.uniform(self.minshearval, self.maxshearval)
+                        rotval = np.random.uniform(self.minrotval, self.maxrotval)
+                        #print('\nApplying shear:',' shearval:',shearval,' rotval:',rotval)
+                        im, bboxes = Transform(im, bboxes, shearval, rotval, self.max_width, self.max_height)
+
+                    if(self.writetoimg):
+                        im.save(os.path.join('outputimg',str(i)+output_file_name.replace('.tfrecord','.png')), dpi=(600, 600))
+
+
                     #print('html to img time:',time.time()-start2)
                     data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes],[im]])
-                    #cv2.imwrite(output_file_name.replace('.tfrecord','.png'),im)
+
                     break
                     #pickle.dump([same_row_matrix, same_col_matrix, same_cell_matrix, bboxes], infofile)
                 except Exception as e:
+                    traceback.print_exc()
                     exceptcount+=1
                     if(exceptioncount>10):
                         return None
@@ -244,7 +272,7 @@ class GenerateTFRecord:
                             print('Thread :',threadnum,' Completed in ',time.time()-starttime,' ' ,output_file_name,'with len:',(len(data_arr)))
 
                         except Exception as e:
-                            print(e)
+                            traceback.print_exc()
                             self.logger.write(traceback.format_exc())
                             # print('Thread :',threadnum,' Removing',output_file_name)
                             # os.remove(os.path.join(self.outtfpath,output_file_name))
