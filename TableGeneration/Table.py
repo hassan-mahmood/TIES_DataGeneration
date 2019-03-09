@@ -181,11 +181,10 @@ class Table:
         elif(self.border_type==2):
             style += """border-bottom:1px solid black;}"""
         elif(self.border_type==3):
-            style+="""}table tr td:first-child, 
-                       table tr th:first-child {border-left: 0;}
-                       th,td{padding:6px;padding-left: 15px;padding-right: 15px;
+            style+="""}th,td{padding:6px;padding-left: 15px;padding-right: 15px;
                        border-left: 1px solid black;}
-                       th{border-bottom: 1px solid black;}"""
+                       th{border-bottom: 1px solid black;}table tr td:first-child, 
+                       table tr th:first-child {border-left: 0;}"""
 
 
         style += "</style></head>"

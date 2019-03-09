@@ -163,6 +163,7 @@ class GenerateTFRecord:
 
 
                     same_cell_matrix,same_col_matrix,same_row_matrix, id_count, html_content= table.create()
+
                     #print('table creation time:',time.time()-start1)
 
 
@@ -176,7 +177,14 @@ class GenerateTFRecord:
                         im, bboxes = Transform(im, bboxes, shearval, rotval, self.max_width, self.max_height)
 
                     if(self.writetoimg):
-                        im.save(os.path.join('outputimg',str(i)+output_file_name.replace('.tfrecord','.png')), dpi=(600, 600))
+                        dirname='level'+str(self.difficultylevel)
+                        self.create_dir(dirname)
+                        self.create_dir(os.path.join(dirname,'html'))
+                        self.create_dir(os.path.join(dirname, 'img'))
+                        f=open(os.path.join(dirname,'html',str(i)+output_file_name.replace('.tfrecord','.html')),'w')
+                        f.write(html_content)
+                        f.close()
+                        im.save(os.path.join(dirname,'img',str(i)+output_file_name.replace('.tfrecord','.png')), dpi=(600, 600))
 
 
                     #print('html to img time:',time.time()-start2)
