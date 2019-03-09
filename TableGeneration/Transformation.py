@@ -106,7 +106,7 @@ def Transform(img,bboxes,shearval,rotval,max_width,max_height):
     transformed_bboxes[:,2] = (transformed_bboxes[:,2] / width) * new_width
     transformed_bboxes[:,3] = (transformed_bboxes[:,3] / height) * new_height
 
-    out=resize_image(out,out.getbbox(),size=(1366,768))
+    out=resize_image(out,out.getbbox(),size=(max_width,max_height))
     transformed_bboxes=np.array(transformed_bboxes,dtype=np.int64)
     transformed_bboxes=np.concatenate((othersinfo,transformed_bboxes),axis=1)
     return out,transformed_bboxes

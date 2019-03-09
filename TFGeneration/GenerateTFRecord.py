@@ -31,7 +31,7 @@ class Logger:
         file.close()
 
 class GenerateTFRecord:
-    def __init__(self, outpath,filesize,tfcount,unlvimagespath,unlvocrpath,unlvtablepath,difficultylevel,writetoimg):
+    def __init__(self, outpath,filesize,tfcount,unlvimagespath,unlvocrpath,unlvtablepath,writetoimg):
         self.outtfpath = outpath
         self.filesize=filesize
         self.num_of_tfs=tfcount
@@ -40,7 +40,6 @@ class GenerateTFRecord:
         self.unlvtablepath=unlvtablepath
         self.create_dir(self.outtfpath)
         self.pool=Pool(processes=cpu_count())
-        self.difficultylevel=difficultylevel
         self.writetoimg=writetoimg
         self.logger=Logger()
         #self.logdir = 'logdir/'
@@ -63,9 +62,7 @@ class GenerateTFRecord:
         self.max_height=768
         self.max_width=1366
         self.threadscounter=0
-        self.tables_categories = {'types': [0, 1], 'probs': [0.5, 0.5]}
-        self.borders_categories = {'types': [0, 1, 2, 3], 'probs': [0.1, 0.2, 0.3, 0.4]}
-        self.current_files_list=[]
+
         #self.str_to_chars=lambda str:np.chararray(list(str))
 
     def create_dir(self,fpath):
@@ -86,7 +83,7 @@ class GenerateTFRecord:
         dummy[:arr.shape[0],:arr.shape[1]]=arr
         return dummy
 
-    def generate_tf_record(self, im, cellmatrix, rowmatrix, colmatrix, arr):
+    def generate_tf_record(self, im, cellmatrix, rowmatrix, colmatrix, arr,difficultylevel):
 
 
         cellmatrix=self.pad_with_zeros(cellmatrix,(self.num_of_max_vertices,self.num_of_max_vertices))
@@ -118,7 +115,7 @@ class GenerateTFRecord:
 
         feature = dict()
         feature['image'] = tf.train.Feature(float_list=tf.train.FloatList(value=im.astype(np.float32).flatten()))
-        feature['global_features'] = tf.train.Feature(float_list=tf.train.FloatList(value=np.array([img_height, img_width,no_of_words]).astype(np.float32).flatten()))
+        feature['global_features'] = tf.train.Feature(float_list=tf.train.FloatList(value=np.array([img_height, img_width,no_of_words,difficultylevel]).astype(np.float32).flatten()))
         feature['vertex_features'] = tf.train.Feature(float_list=tf.train.FloatList(value=vertex_features.astype(np.float32).flatten()))
         feature['adjacency_matrix_cells'] = tf.train.Feature(int64_list=tf.train.Int64List(value=cellmatrix.astype(np.int64).flatten()))
         feature['adjacency_matrix_cols'] = tf.train.Feature(int64_list=tf.train.Int64List(value=colmatrix.astype(np.int64).flatten()))
@@ -149,35 +146,27 @@ class GenerateTFRecord:
             exceptcount=0
             while(True):
                 try:
-                    table_type=0
-                    border_type=0
-                    apply_shear=False
-                    if(self.difficultylevel>=3):
-                        table_type = random.choices(self.tables_categories['types'], weights=self.tables_categories['probs'])[0]
-                    if(self.difficultylevel>=2):
-                        border_type = random.choices(self.borders_categories['types'], weights=self.borders_categories['probs'])[0]
-                    if(self.difficultylevel==4):
-                        apply_shear=random.choices([True,False])
+                    table = Table(rows,cols,self.unlvimagespath,self.unlvocrpath,self.unlvtablepath)
 
-                    table = Table(rows,cols,self.unlvimagespath,self.unlvocrpath,self.unlvtablepath,table_type,border_type,self.difficultylevel)
-
-
-                    same_cell_matrix,same_col_matrix,same_row_matrix, id_count, html_content= table.create()
-
+                    same_cell_matrix,same_col_matrix,same_row_matrix, id_count, html_content,difficultylevel= table.create()
                     #print('table creation time:',time.time()-start1)
 
 
                     im,bboxes = html_to_img(driver, html_content, id_count, self.max_height, self.max_width)
                     # apply_shear: bool - True: Apply Transformation, False: No Transformation
 
-                    if(apply_shear):
+                    #probability weight for shearing to be 25%
+                    apply_shear = random.choices([True, False],weights=[0.25,0.75])[0]
+                    if(apply_shear==True):
                         shearval = np.random.uniform(self.minshearval, self.maxshearval)
                         rotval = np.random.uniform(self.minrotval, self.maxrotval)
                         #print('\nApplying shear:',' shearval:',shearval,' rotval:',rotval)
                         im, bboxes = Transform(im, bboxes, shearval, rotval, self.max_width, self.max_height)
+                        if(shearval!=0.0 and rotval!=0.0):
+                            difficultylevel=4
 
                     if(self.writetoimg):
-                        dirname='level'+str(self.difficultylevel)
+                        dirname='level'+str(difficultylevel)
                         self.create_dir(dirname)
                         self.create_dir(os.path.join(dirname,'html'))
                         self.create_dir(os.path.join(dirname, 'img'))
@@ -186,9 +175,10 @@ class GenerateTFRecord:
                         f.close()
                         im.save(os.path.join(dirname,'img',str(i)+output_file_name.replace('.tfrecord','.png')), dpi=(600, 600))
 
+                    #print('difficultylevel:',difficultylevel)
 
                     #print('html to img time:',time.time()-start2)
-                    data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes],[im]])
+                    data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes,[difficultylevel]],[im]])
 
                     break
                     #pickle.dump([same_row_matrix, same_col_matrix, same_cell_matrix, bboxes], infofile)
@@ -262,6 +252,7 @@ class GenerateTFRecord:
             print('Thread: ',threadnum,' Started:', output_file_name)
 
             data_arr = self.generate_tables(driver, filesize, output_file_name)
+
             #print('\nThread: ',threadnum,'data arr returned with :',len(data_arr))
             if(data_arr is not None):
                 if(len(data_arr)==filesize):
@@ -275,7 +266,8 @@ class GenerateTFRecord:
                                 cellmatrix = np.array(arr[2],dtype=np.int64)
                                 rowmatrix = np.array(arr[0],dtype=np.int64)
                                 bboxes = np.array(arr[3])
-                                seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes)
+                                difficultylevel=arr[4][0]
+                                seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes,difficultylevel)
                                 writer.write(seq_ex.SerializeToString())
                             print('Thread :',threadnum,' Completed in ',time.time()-starttime,' ' ,output_file_name,'with len:',(len(data_arr)))
 

@@ -12,16 +12,19 @@ class Table:
     #Border Type:
     # 0: complete border, 1: completely w/o borders, 2: with lines underhead, 3: internal borders
 
-    def __init__(self,no_of_rows,no_of_cols,images_path,ocr_path,gt_table_path,table_type,border_type,difficultylevel):
+    def __init__(self,no_of_rows,no_of_cols,images_path,ocr_path,gt_table_path):
         self.distribution=Distribution(images_path,ocr_path,gt_table_path)
         #self.distribution_data=self.distribution.get_distribution()
         self.all_words,self.all_numbers,self.all_others=self.distribution.get_distribution()
         #self.words_distribution, self.numbers_distribution,self.others_distribution = len(self.all_words), len(self.all_numbers)
         self.no_of_rows=no_of_rows
         self.no_of_cols=no_of_cols
-        self.table_type=table_type
-        self.border_type=border_type
-        self.difficultylevel=difficultylevel
+        self.tables_categories = {'types': [0, 1], 'probs': [0.5, 0.5]}
+        self.borders_categories = {'types': [0, 1, 2, 3], 'probs': [0.25, 0.25, 0.25, 0.25]}
+        self.border_type = random.choices(self.borders_categories['types'], weights=self.borders_categories['probs'])[0]
+        self.table_type = random.choices(self.tables_categories['types'], weights=self.tables_categories['probs'])[0]
+        self.spanflag=False
+
         self.idcounter=0
         #cell_types matrix will have 'n' and 'w' where 'w' means word and 'n' means number
         self.cell_types=np.chararray(shape=(self.no_of_rows,self.no_of_cols))
@@ -127,11 +130,12 @@ class Table:
 
     def make_header_col_spans(self):
         header_span_indices,header_span_lengths=[],[]
-        if(self.difficultylevel>=3):
-            header_span_indices, header_span_lengths = self.agnostic_span_indices(self.no_of_cols)
+
+        header_span_indices, header_span_lengths = self.agnostic_span_indices(self.no_of_cols)
         row_span_indices=[]
         for index,length in zip(header_span_indices,header_span_lengths):
             #0th row as for header
+            self.spanflag=True
             self.col_spans_matrix[0,index]=length
             self.col_spans_matrix[0,index+1:index+length]=-1
             row_span_indices+=list(range(index,index+length))
@@ -151,6 +155,7 @@ class Table:
         span_indices=[x+2 for x in span_indices]
 
         for index, length in zip(span_indices, span_lengths):
+            self.spanflag=True
             # 0th row as for header
             self.row_spans_matrix[index,colnumber]=length
             self.row_spans_matrix[index+1:index+length,colnumber]=-1
@@ -177,13 +182,14 @@ class Table:
         style += """border-collapse:collapse;}td,th{padding:6px;padding-left: 15px;padding-right: 15px;"""
 
         if(self.border_type==0):
+
             style += """ border:1px solid black;} """
         elif(self.border_type==2):
             style += """border-bottom:1px solid black;}"""
         elif(self.border_type==3):
             style+="""}th,td{padding:6px;padding-left: 15px;padding-right: 15px;
                        border-left: 1px solid black;}
-                       th{border-bottom: 1px solid black;}table tr td:first-child, 
+                       th{border-bottom: 1px solid black;} table tr td:first-child, 
                        table tr th:first-child {border-left: 0;}"""
 
 
@@ -267,16 +273,33 @@ class Table:
                     all_cells.append(self.data_matrix[row,col])
         return self.create_matrix(all_cells,self.idcounter)
 
+    def difficulty_level(self):
+        #variables to consider:
+        #- self.spanflag - self.tabletype(1 means spanned rows) - self.bordertype
+        difficultylevel=1
+        if(self.spanflag==False):
+            if(self.border_type==0):
+                difficultylevel=1
+            else:
+                difficultylevel=2
+        else:
+            difficultylevel=3
+
+        return difficultylevel
+
 
     def create(self):
         self.define_col_types()
-        self.make_header_col_spans()
-        #self.generate_missing_cells()
+        self.generate_missing_cells()
+        local_span_flag=random.choices([True,False],weights=[0.5,0.5])[0]
+        if(local_span_flag):
+            self.make_header_col_spans()
         html=self.create_html()
         cells_matrix,cols_matrix,rows_matrix=self.create_cell_matrix(),\
                                              self.create_col_matrix(),\
                                              self.create_row_matrix()
-        return cells_matrix,cols_matrix,rows_matrix,self.idcounter,html
+        difficultylevel=self.difficulty_level()
+        return cells_matrix,cols_matrix,rows_matrix,self.idcounter,html,difficultylevel
 
         #
         # # self.add_spans()

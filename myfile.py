@@ -77,11 +77,11 @@ tablepath='/media/hassan/NewVolume/Server/Projects/Table_Detection_Dataset/unlv/
 #_______________________________________________
 from PIL import Image,ImageDraw
 from skimage import io
-from TableGeneration.Shear import Shear_Transform
+from TableGeneration.Transformation import Transform
 import pickle
-f=open('points','rb')
-bboxes=pickle.load(f)
-f.close()
+# f=open('points','rb')
+# bboxes=pickle.load(f)
+# f.close()
 
 max_width=1366
 max_height=768
@@ -90,13 +90,13 @@ img=io.imread('hassan.png')
 
 import time
 start=time.time()
-
-out,transformed_bboxes =Shear_Transform(img,bboxes,-0.1,-0.01,max_width,max_height)
+bboxes=[[0,0,0,0]]
+out,transformed_bboxes =Transform(img,bboxes,-0.00001,-0.01,max_width,max_height)
 
 draw = ImageDraw.Draw(out)
 
-for bbox in transformed_bboxes:
-    draw.rectangle(((bbox[0], bbox[1]), (bbox[2], bbox[3])), outline=(0, 0, 255))
+# for bbox in transformed_bboxes:
+#     draw.rectangle(((bbox[0], bbox[1]), (bbox[2], bbox[3])), outline=(0, 0, 255))
 
 print(time.time()-start)
 print('\n final out:',out.size)
