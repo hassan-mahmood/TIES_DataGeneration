@@ -19,4 +19,3 @@ if(args.writetoimg==1):
 t = GenerateTFRecord(args.outpath,args.filesize,args.tfcount,args.imagespath,
                      args.ocrpath,args.tablepath,writetoimg)
 t.write_to_tf(args.threads)
-
