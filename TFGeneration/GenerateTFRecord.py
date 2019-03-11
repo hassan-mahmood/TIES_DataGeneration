@@ -252,7 +252,7 @@ class GenerateTFRecord:
             print('Thread: ',threadnum,' Started:', output_file_name)
 
             data_arr = self.generate_tables(driver, filesize, output_file_name)
-
+            
             #print('\nThread: ',threadnum,'data arr returned with :',len(data_arr))
             if(data_arr is not None):
                 if(len(data_arr)==filesize):

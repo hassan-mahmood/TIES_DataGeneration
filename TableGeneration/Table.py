@@ -45,7 +45,6 @@ class Table:
         self.data_matrix = np.empty(shape=(self.no_of_rows,self.no_of_cols),dtype=object)
 
 
-
     def get_log_value(self):
         import math
         return int(math.log(self.no_of_rows*self.no_of_cols,2))
@@ -114,8 +113,10 @@ class Table:
                 continue
 
 
-            if(max_lengths==-1):
-                max_lengths=maxvalue-index
+
+            max_lengths=maxvalue-index
+            if(max_lengths<2):
+                break
             len_span = random.randint(1, max_lengths)
 
             if (len_span > 1):
@@ -132,6 +133,7 @@ class Table:
         header_span_indices,header_span_lengths=[],[]
 
         header_span_indices, header_span_lengths = self.agnostic_span_indices(self.no_of_cols)
+
         row_span_indices=[]
         for index,length in zip(header_span_indices,header_span_lengths):
             #0th row as for header
@@ -182,15 +184,15 @@ class Table:
         style += """border-collapse:collapse;}td,th{padding:6px;padding-left: 15px;padding-right: 15px;"""
 
         if(self.border_type==0):
-
             style += """ border:1px solid black;} """
         elif(self.border_type==2):
             style += """border-bottom:1px solid black;}"""
         elif(self.border_type==3):
-            style+="""}th,td{padding:6px;padding-left: 15px;padding-right: 15px;
-                       border-left: 1px solid black;}
+            style+="""border-left: 1px solid black;}
                        th{border-bottom: 1px solid black;} table tr td:first-child, 
                        table tr th:first-child {border-left: 0;}"""
+        else:
+            style+="""}"""
 
 
         style += "</style></head>"
@@ -208,25 +210,36 @@ class Table:
 
                 row_span_value = int(self.row_spans_matrix[r, c])
                 col_span_value = int(self.col_spans_matrix[r, c])
+                htmlcol = temparr[['s', 'h'].index(self.headers[r][c].decode('utf-8'))]
+
                 if (row_span_value == -1):
                     self.data_matrix[r, c] = self.data_matrix[r - 1, c]
                     continue
-
-                if(r,c) in self.missing_cells:
-                    html+="""<td></td>"""
-                    continue
-
-
-                htmlcol=temparr[['s','h'].index(self.headers[r][c].decode('utf-8'))]
-
-                if(row_span_value!=0):
-                    html+='<'+htmlcol+' rowspan=\"'+str(row_span_value)+'"'
+                elif(row_span_value>0):
+                    html += '<' + htmlcol + ' rowspan=\"' + str(row_span_value) + '"'
                 else:
-                    if(col_span_value==-1):
-                        self.data_matrix[r,c] = self.data_matrix[r,c-1]
+                    if(col_span_value==0):
+                        if (r, c) in self.missing_cells:
+                            html += """<td></td>"""
+                            continue
+                    if (col_span_value == -1):
+                        self.data_matrix[r, c] = self.data_matrix[r, c - 1]
                         continue
+                    html += '<' + htmlcol + """ colspan=""" + str(col_span_value)
 
-                    html+='<'+htmlcol+""" colspan="""+str(col_span_value)
+
+
+
+                # htmlcol=temparr[['s','h'].index(self.headers[r][c].decode('utf-8'))]
+
+                # if(row_span_value!=0):
+                #     html+='<'+htmlcol+' rowspan=\"'+str(row_span_value)+'"'
+                # else:
+                #     if(col_span_value==-1):
+                #         self.data_matrix[r,c] = self.data_matrix[r,c-1]
+                #         continue
+                #
+                #     html+='<'+htmlcol+""" colspan="""+str(col_span_value)
 
                 out,ids = self.generate_random_text(self.cell_types[r, c].decode('utf-8'))
                 html+='>'+out+'</'+htmlcol+'>'
@@ -295,6 +308,7 @@ class Table:
         self.define_col_types()
         self.generate_missing_cells()
         local_span_flag=random.choices([True,False],weights=[0.5,0.5])[0]
+        local_span_flag=True
         if(local_span_flag):
             self.make_header_col_spans()
         html=self.create_html()
@@ -302,6 +316,11 @@ class Table:
                                              self.create_col_matrix(),\
                                              self.create_row_matrix()
         difficultylevel=self.difficulty_level()
+        print('Headers:',self.headers)
+        print('colspans:', self.col_spans_matrix)
+        print('rowspans:', self.row_spans_matrix)
+        print('datamatrix:', self.data_matrix)
+        print('missing cells:', self.missing_cells)
         return cells_matrix,cols_matrix,rows_matrix,self.idcounter,html,difficultylevel
 
         #
