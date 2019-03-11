@@ -205,14 +205,17 @@ class Table:
         for r in range(self.no_of_rows):
             html+='<tr>'
             for c in range(self.no_of_cols):
+
+                row_span_value = int(self.row_spans_matrix[r, c])
+                col_span_value = int(self.col_spans_matrix[r, c])
+                if (row_span_value == -1):
+                    self.data_matrix[r, c] = self.data_matrix[r - 1, c]
+                    continue
+
                 if(r,c) in self.missing_cells:
                     html+="""<td></td>"""
                     continue
-                row_span_value=int(self.row_spans_matrix[r,c])
-                col_span_value=int(self.col_spans_matrix[r,c])
-                if (row_span_value == -1):
-                    self.data_matrix[r,c] = self.data_matrix[r-1,c]
-                    continue
+
 
                 htmlcol=temparr[['s','h'].index(self.headers[r][c].decode('utf-8'))]
 

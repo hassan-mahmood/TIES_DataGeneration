@@ -86,7 +86,7 @@ import pickle
 max_width=1366
 max_height=768
 
-img=io.imread('hassan.png')
+img=io.imread('nowimg.png')
 
 import time
 start=time.time()
