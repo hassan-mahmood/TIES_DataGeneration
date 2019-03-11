@@ -316,11 +316,11 @@ class Table:
                                              self.create_col_matrix(),\
                                              self.create_row_matrix()
         difficultylevel=self.difficulty_level()
-        print('Headers:',self.headers)
-        print('colspans:', self.col_spans_matrix)
-        print('rowspans:', self.row_spans_matrix)
-        print('datamatrix:', self.data_matrix)
-        print('missing cells:', self.missing_cells)
+        # print('Headers:',self.headers)
+        # print('colspans:', self.col_spans_matrix)
+        # print('rowspans:', self.row_spans_matrix)
+        # print('datamatrix:', self.data_matrix)
+        # print('missing cells:', self.missing_cells)
         return cells_matrix,cols_matrix,rows_matrix,self.idcounter,html,difficultylevel
 
         #
