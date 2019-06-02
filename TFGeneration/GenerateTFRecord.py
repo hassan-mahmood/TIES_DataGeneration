@@ -77,7 +77,7 @@ class GenerateTFRecord:
         return dummy
 
 
-    def generate_tf_record(self, im, cellmatrix, rowmatrix, colmatrix, arr,difficultylevel):
+    def generate_tf_record(self, im, cellmatrix, rowmatrix, colmatrix, arr,tablecategory):
         '''This function generates tfrecord files using given information'''
         cellmatrix=self.pad_with_zeros(cellmatrix,(self.num_of_max_vertices,self.num_of_max_vertices))
         colmatrix = self.pad_with_zeros(colmatrix, (self.num_of_max_vertices, self.num_of_max_vertices))
@@ -108,7 +108,7 @@ class GenerateTFRecord:
 
         feature = dict()
         feature['image'] = tf.train.Feature(float_list=tf.train.FloatList(value=im.astype(np.float32).flatten()))
-        feature['global_features'] = tf.train.Feature(float_list=tf.train.FloatList(value=np.array([img_height, img_width,no_of_words,difficultylevel]).astype(np.float32).flatten()))
+        feature['global_features'] = tf.train.Feature(float_list=tf.train.FloatList(value=np.array([img_height, img_width,no_of_words,tablecategory]).astype(np.float32).flatten()))
         feature['vertex_features'] = tf.train.Feature(float_list=tf.train.FloatList(value=vertex_features.astype(np.float32).flatten()))
         feature['adjacency_matrix_cells'] = tf.train.Feature(int64_list=tf.train.Int64List(value=cellmatrix.astype(np.int64).flatten()))
         feature['adjacency_matrix_cols'] = tf.train.Feature(int64_list=tf.train.Int64List(value=colmatrix.astype(np.int64).flatten()))
@@ -126,7 +126,7 @@ class GenerateTFRecord:
         row_col_min=[self.row_min,self.col_min]                 #to randomly select number of rows
         row_col_max=[self.row_max,self.col_max]                 #to randomly select number of columns
         arr = np.random.uniform(low=row_col_min, high=row_col_max, size=(N_imgs, 2))        #random row and col selection for N images
-        all_difficulty_levels=[0,0,0,0]                         #These 4 values will count the number of images for each of the difficulty levels
+        all_table_categories=[0,0,0,0]                         #These 4 values will count the number of images for each of the category
         arr[:,0]=arr[:,0]+2                                     #increasing the number of rows by a fix 2. (We can comment out this line. Does not affect much)
         data_arr=[]
         exceptioncount=0
@@ -143,8 +143,8 @@ class GenerateTFRecord:
                     table = Table(rows,cols,self.unlvimagespath,self.unlvocrpath,self.unlvtablepath)
 
                     #get table of rows and cols based on unlv distribution and get features of this table
-                    #(same row, col and cell matrices, total unique ids, html conversion of table and its difficulty level)
-                    same_cell_matrix,same_col_matrix,same_row_matrix, id_count, html_content,difficultylevel= table.create()
+                    #(same row, col and cell matrices, total unique ids, html conversion of table and its category)
+                    same_cell_matrix,same_col_matrix,same_row_matrix, id_count, html_content,tablecategory= table.create()
 
                     #convert this html code to image using selenium webdriver. Get equivalent bounding boxes
                     #for each word in the table. This will generate ground truth for our problem
@@ -162,13 +162,13 @@ class GenerateTFRecord:
                         im, bboxes = Transform(im, bboxes, shearval, rotval, self.max_width, self.max_height)
 
                         if(shearval!=0.0 and rotval!=0.0):
-                            #If the image is transformed, then its difficulty level is 4
-                            difficultylevel=4
+                            #If the image is transformed, then its categorycategory is 4
+                            tablecategory=4
 
                     if(self.writetoimg):
                         #if the image and equivalent html is need to be stored
                         self.create_dir('writetoimg')
-                        dirname=os.path.join('writetoimg/','level'+str(difficultylevel))
+                        dirname=os.path.join('writetoimg/','category'+str(tablecategory))
                         self.create_dir(dirname)
                         self.create_dir(os.path.join(dirname,'html'))
                         self.create_dir(os.path.join(dirname, 'img'))
@@ -177,8 +177,8 @@ class GenerateTFRecord:
                         f.close()
                         im.save(os.path.join(dirname,'img',str(i)+output_file_name.replace('.tfrecord','.png')), dpi=(600, 600))
 
-                    data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes,[difficultylevel]],[im]])
-                    all_difficulty_levels[difficultylevel-1]+=1
+                    data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes,[tablecategory]],[im]])
+                    all_table_categories[tablecategory-1]+=1
                     break
                 except Exception as e:
                     traceback.print_exc()
@@ -193,7 +193,7 @@ class GenerateTFRecord:
             #If total number of images are not generated, then return None.
             print('Images not equal to the required size.')
             return None
-        return data_arr,all_difficulty_levels
+        return data_arr,all_table_categories
 
     def draw_matrix(self,im,arr,matrix):
         '''Call this fucntion to draw visualizations of a matrix on image'''
@@ -245,8 +245,8 @@ class GenerateTFRecord:
             output_file_name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=20)) + '.tfrecord'
             print('Thread: ',threadnum,' Started:', output_file_name)
 
-            #data_arr contains the images of generated tables and all_difficulty_levels contains the difficulty level of each of the table
-            data_arr,all_difficulty_levels = self.generate_tables(driver, filesize, output_file_name)
+            #data_arr contains the images of generated tables and all_table_categories contains the table category of each of the table
+            data_arr,all_table_categories = self.generate_tables(driver, filesize, output_file_name)
 
             if(data_arr is not None):
                 if(len(data_arr)==filesize):
@@ -260,11 +260,11 @@ class GenerateTFRecord:
                                 cellmatrix = np.array(arr[2],dtype=np.int64)
                                 rowmatrix = np.array(arr[0],dtype=np.int64)
                                 bboxes = np.array(arr[3])
-                                difficultylevel=arr[4][0]
-                                seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes,difficultylevel)
+                                tablecategory=arr[4][0]
+                                seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes,tablecategory)
                                 writer.write(seq_ex.SerializeToString())
                             print('Thread :',threadnum,' Completed in ',time.time()-starttime,' ' ,output_file_name,'with len:',(len(data_arr)))
-                            print('level 1: ',all_difficulty_levels[0],', level 2: ',all_difficulty_levels[1],', level 3: ',all_difficulty_levels[2],', level 4: ',all_difficulty_levels[3])
+                            print('category 1: ',all_table_categories[0],', category 2: ',all_table_categories[1],', category 3: ',all_table_categories[2],', category 4: ',all_table_categories[3])
                         except Exception as e:
                             traceback.print_exc()
                             self.logger.write(traceback.format_exc())
