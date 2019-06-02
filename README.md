@@ -1,4 +1,4 @@
-#TIES Dataset Generation
+# TIES Dataset Generation
 
 * TableGeneration: Contains functionality to generate tables
 * TFGeneration: Contains functionality to generate tfrecord files. It uses TableGeneration module to generate tables.
@@ -43,7 +43,7 @@ A table is generated in multiple steps like a lego building block(with each step
 6. Finally, shear and rotation transformations are applied to the table image.
 
 
-##TFGeneration
+## TFGeneration
 
 During table generation process, the words are assigned unique IDs. During html-to-image conversion, these words are localized with bounding boxes and transformed on image transformation accordingly.
 
