@@ -1,4 +1,4 @@
-#TIES Dataset Generation
+# TIES Dataset Generation
 
 * TableGeneration: Contains functionality to generate tables
 * TFGeneration: Contains functionality to generate tfrecord files. It uses TableGeneration module to generate tables.
