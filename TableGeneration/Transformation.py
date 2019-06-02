@@ -3,7 +3,6 @@ from skimage import io,img_as_ubyte
 from skimage import transform
 import numpy as np
 from PIL import Image,ImageDraw
-import scipy as misc
 
 
 def find_new_points(matrix,x,y):
@@ -12,12 +11,11 @@ def find_new_points(matrix,x,y):
     return round(ret[0][0]),round(ret[1][0])
 
 def resize_image(img,offsets,size):
-    a4im = Image.new('RGBA',
+    newimg = Image.new('RGBA',
                      (int(size[0]), int(size[1])),  # A4 at 72dpi
                      (255, 255, 255,255))  # White
-
-    a4im.paste(img, offsets)  # Not centered, top-left corner
-    return a4im
+    newimg.paste(img, offsets)  # Not centered, top-left corner
+    return newimg
 
 def pad_original_image(img,transformation_matrix,max_width,max_height):
     points=[[0,0],[0,max_height],[max_width,0],[max_width,max_height]]
@@ -61,8 +59,6 @@ def pad_original_image(img,transformation_matrix,max_width,max_height):
 
     return a4im,offsetx,offsety
 
-
-
 def Transform(img,bboxes,shearval,rotval,max_width,max_height):
     bboxes=np.array(np.array(bboxes))
     othersinfo=bboxes[:,:2]
@@ -70,7 +66,6 @@ def Transform(img,bboxes,shearval,rotval,max_width,max_height):
 
     afine_tf = transform.AffineTransform(shear=shearval,rotation=rotval)
     points_transformation = transform.AffineTransform(shear=-1*shearval,rotation=-1*rotval)
-
     #img,offsetx,offsety=pad_original_image(Image.fromarray(img.astype(np.uint8)),points_transformation.params,max_width,max_height)
     img, offsetx, offsety = pad_original_image(img, points_transformation.params,
                                                max_width, max_height)
@@ -95,27 +90,21 @@ def Transform(img,bboxes,shearval,rotval,max_width,max_height):
     transformed_image = transform.warp(img, inverse_map=afine_tf)
     out=img_as_ubyte(transformed_image)
     out=Image.fromarray(out)
-
     width,height=out.size
     new_width = max_width
     new_height = new_width * height / width
     out.thumbnail((new_width,new_height),Image.ANTIALIAS)
+
     transformed_bboxes=np.array(transformed_bboxes)
     transformed_bboxes[:,0]=(transformed_bboxes[:,0]/width)*new_width
     transformed_bboxes[:,1]=(transformed_bboxes[:,1]/height)*new_height
     transformed_bboxes[:,2] = (transformed_bboxes[:,2] / width) * new_width
     transformed_bboxes[:,3] = (transformed_bboxes[:,3] / height) * new_height
 
-    out=resize_image(out,out.getbbox(),size=(max_width,max_height))
+
+    outbbox=out.getbbox()
+    out=resize_image(out,(outbbox[0],outbbox[1]),size=(max_width,max_height))
     transformed_bboxes=np.array(transformed_bboxes,dtype=np.int64)
     transformed_bboxes=np.concatenate((othersinfo,transformed_bboxes),axis=1)
     return out,transformed_bboxes
-
-
-    # draw = ImageDraw.Draw(out)
-    #
-    # for bbox in transformed_bboxes:
-    #     draw.rectangle(((bbox[0],bbox[1]), (bbox[2],bbox[3])),outline=(0,0,255))
-
-
 

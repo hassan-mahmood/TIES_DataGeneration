@@ -21,21 +21,13 @@ warnings.warn = warn
 
 
 def html_to_img(driver,html_content,id_count,max_height,max_width):
-    # opts = Options()
-    # opts.set_headless()
-    # assert opts.headless
-    # #driver=PhantomJS()
-    # driver = Firefox(options=opts)
-    counter=1
+    '''converts html to image'''
+    counter=1                #This counter is to keep track of the exceptions and stop execution after 10 exceptions have occurred
     while(True):
         try:
             driver.get("data:text/html;charset=utf-8," + html_content)
-            #driver.execute_script("document.write('{}')".format(json.dumps(htmlcode)))
 
             element = WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.ID, '0')))
-
-            #WebDriverWait(driver, 1).until(EC.visibility_of(element))
-
 
             bboxes=[]
             for id in range(id_count):
@@ -55,18 +47,13 @@ def html_to_img(driver,html_content,id_count,max_height,max_width):
             png = driver.get_screenshot_as_png()
 
             im = Image.open(BytesIO(png))
-            width,height=im.size
 
             im = im.crop((0,0, max_width, max_height))
 
-            #im.save(outimgpath,dpi=(600,600))
             return im,bboxes
         except Exception as e:
             counter+=1
             if(counter==10):
                 raise e
-                #print('\nraising exception')
-                #traceback.print_exc()
-                #raise Exception("Error occurred at line 68 inside tools.py")
 
             continue

@@ -6,7 +6,7 @@ import numpy as np
 import pickle
 
 class Distribution:
-
+    '''This class extracts the distribution of text, numbers and others(containing special characters) from unlv dataset'''
     def __init__(self,images_path,ocr_path,table_path):
         self.images_path=images_path
         self.ocr_path=ocr_path
@@ -20,14 +20,12 @@ class Distribution:
 
     def load_from_pickle(self):
         file=open(self.pickle_filename,'rb')
-        #print('\nloaded from pickle')
         self.all_tables_data=pickle.load(file)
         file.close()
         return self.get_words_numbers_others()
 
 
     def store_to_pickle(self):
-        #print('\nSaved Distribution')
         file=open(self.pickle_filename,'wb')
         pickle.dump(self.all_tables_data,file)
         file.close()
@@ -41,14 +39,10 @@ class Distribution:
         return self.all_words,self.all_numbers,self.all_others
 
     def get_distribution(self):
-
         if(os.path.exists(self.pickle_filename)):
             self.load_from_pickle()
             return self.get_words_numbers_others()
-            #return self.get_words_numbers()
 
-        # if(not os.path.exists('myimages')):
-        #     os.mkdir('myimages')
         print('\nProcessing UNLV for distribution:')
         for filename in tqdm(os.listdir(self.images_path)):
             im = cv2.imread(os.path.join(self.images_path, filename))
@@ -59,10 +53,8 @@ class Distribution:
             root = ElementTree.parse(os.path.join(self.ocr_path, filename.replace('.png', '.xml'))).getroot()
             im, tables_counters = self.words_rectangles(root, table_coords,row_col_counter, im)
             self.all_tables_data+=[[filename,tables_counters]]
-            #cv2.imwrite(os.path.join('myimages',filename),im)
 
         self.store_to_pickle()
-        #return self.get_words_numbers()
         return self.all_tables_data
 
     def get_transformed_pts(self,pts1, pts2, dim, imshape):
@@ -96,7 +88,7 @@ class Distribution:
     def words_rectangles(self,root, table_coords,row_col_counter, im):
 
         table_coords = np.array(table_coords)
-        #word means alphabetic word, number means digit, other is a combination of both
+        #word means alphabetic word, number means digit, other means strings with special characters
 
         height, width, _ = im.shape
         all_words_coords, all_text = self.get_numpy_coords(root, height)
@@ -116,28 +108,15 @@ class Distribution:
                 temp_chr=original_word
                 temp_chr=temp_chr.replace(',','').replace('-','').replace('.','').lower()
 
-
-                # if(temp_chr[0] in alphabets):
-                #     if(temp_chr in numbers):
-                #         word_type_counters['other'].append(temp_chr)
-                #     else:
-                #         word_type_counters['alphabet'].append(temp_chr)
-                # elif(temp_chr in numbers):
-                #     word_type_counters['number'].append(temp_chr)
-
                 if (temp_chr.isalpha()):
-                    #print(original_word,temp_chr,' is alphabet')
                     word_type_counters['alphabet'].append(original_word)
 
                 elif(temp_chr.isnumeric() or temp_chr.isdecimal()):
                     if(temp_chr.count('.')<=1):
-                        #print(original_word,temp_chr, ' is number')
                         word_type_counters['number'].append(original_word)
                     else:
-                        #print(original_word,temp_chr, ' is other')
                         word_type_counters['other'].append(original_word)
                 else:
-                    #print(original_word,temp_chr, ' is other')
                     word_type_counters['other'].append(temp_chr)
 
 
@@ -175,6 +154,5 @@ class Distribution:
             counter['row']+=1
             counter['column']+=1
             combined_counter.append(counter)
-
 
         return im, table_coords,combined_counter

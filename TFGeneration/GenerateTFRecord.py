@@ -31,61 +31,54 @@ class Logger:
         file.close()
 
 class GenerateTFRecord:
-    def __init__(self, outpath,filesize,tfcount,unlvimagespath,unlvocrpath,unlvtablepath,writetoimg):
-        self.outtfpath = outpath
-        self.filesize=filesize
-        self.num_of_tfs=tfcount
-        self.unlvocrpath=unlvocrpath
-        self.unlvimagespath=unlvimagespath
-        self.unlvtablepath=unlvtablepath
-        self.create_dir(self.outtfpath)
-        self.pool=Pool(processes=cpu_count())
-        self.writetoimg=writetoimg
-        self.logger=Logger()
+    def __init__(self, outpath,filesize,unlvimagespath,unlvocrpath,unlvtablepath,writetoimg):
+        self.outtfpath = outpath                        #directory to store tfrecords
+        self.filesize=filesize                          #number of images in each tfrecord
+        self.unlvocrpath=unlvocrpath                    #unlv ocr ground truth files
+        self.unlvimagespath=unlvimagespath              #unlv images
+        self.unlvtablepath=unlvtablepath                #unlv ground truth of tabls
+        self.create_dir(self.outtfpath)                 #create output directory if it does not exist
+        self.writetoimg=writetoimg                      #wheter to store images separately or not
+        self.logger=Logger()                            #if we want to use logger and store output to file
         #self.logdir = 'logdir/'
         #self.create_dir(self.logdir)
         #logging.basicConfig(filename=os.path.join(self.logdir,'Log.log'), filemode='a+', format='%(name)s - %(levelname)s - %(message)s')
-        self.writer=None
-        self.lock=Lock()
-        self.num_of_max_vertices=900
-        self.max_length_of_word=30
-        self.row_min=3
-        self.row_max=15
-        self.col_min=3
-        self.col_max=9
-        self.minshearval=-0.1
-        self.maxshearval=0.1
-        self.minrotval=-0.01
-        self.maxrotval=0.01
-        self.num_data_dims=5
-        self.filecounter=1
-        self.max_height=768
-        self.max_width=1366
-        self.threadscounter=0
+        self.num_of_max_vertices=900                    #number of vertices (maximum number of words in any table)
+        self.max_length_of_word=30                      #max possible length of each word
+        self.row_min=3                                  #minimum number of rows in a table (includes headers)
+        self.row_max=15                                 #maximum number of rows in a table
+        self.col_min=3                                  #minimum number of columns in a table
+        self.col_max=9                                  #maximum number of columns in a table
+        self.minshearval=-0.1                           #minimum value of shear to apply to images
+        self.maxshearval=0.1                            #maxmimum value of shear to apply to images
+        self.minrotval=-0.01                            #minimum rotation applied to images
+        self.maxrotval=0.01                             #maximum rotation applied to images
+        self.num_data_dims=5                            #data dimensions to store in tfrecord
+        self.max_height=768                             #max image height
+        self.max_width=1366                             #max image width
 
-        #self.str_to_chars=lambda str:np.chararray(list(str))
 
-    def create_dir(self,fpath):
+    def create_dir(self,fpath):                         #creates directory fpath if it does not exist
         if(not os.path.exists(fpath)):
             os.mkdir(fpath)
 
-    def str_to_int(self,str):
+    def str_to_int(self,str):                           #converts each character in a word to equivalent int
         intsarr=np.array([ord(chr) for chr in str])
         padded_arr=np.zeros(shape=(self.max_length_of_word),dtype=np.int64)
         padded_arr[:len(intsarr)]=intsarr
         return padded_arr
 
-    def convert_to_int(self, arr):
+    def convert_to_int(self, arr):                      #simply converts array to a string
         return [int(val) for val in arr]
 
-    def pad_with_zeros(self,arr,shape):
+    def pad_with_zeros(self,arr,shape):                 #will pad the input array with zeros to make it equal to 'shape'
         dummy=np.zeros(shape,dtype=np.int64)
         dummy[:arr.shape[0],:arr.shape[1]]=arr
         return dummy
 
+
     def generate_tf_record(self, im, cellmatrix, rowmatrix, colmatrix, arr,difficultylevel):
-
-
+        '''This function generates tfrecord files using given information'''
         cellmatrix=self.pad_with_zeros(cellmatrix,(self.num_of_max_vertices,self.num_of_max_vertices))
         colmatrix = self.pad_with_zeros(colmatrix, (self.num_of_max_vertices, self.num_of_max_vertices))
         rowmatrix = self.pad_with_zeros(rowmatrix, (self.num_of_max_vertices, self.num_of_max_vertices))
@@ -129,44 +122,53 @@ class GenerateTFRecord:
         return seq_ex
 
     def generate_tables(self,driver,N_imgs,output_file_name):
-        #np.random.seed(time.time())
-        #arr = np.random.randint(1, self.max_rows, (N_imgs, 2))
-        row_col_min=[self.row_min,self.col_min]
-        row_col_max=[self.row_max,self.col_max]
-        arr = np.random.uniform(low=row_col_min, high=row_col_max, size=(N_imgs, 2))
 
-        arr[:,0]=arr[:,0]+2
+        row_col_min=[self.row_min,self.col_min]                 #to randomly select number of rows
+        row_col_max=[self.row_max,self.col_max]                 #to randomly select number of columns
+        arr = np.random.uniform(low=row_col_min, high=row_col_max, size=(N_imgs, 2))        #random row and col selection for N images
+        all_difficulty_levels=[0,0,0,0]                         #These 4 values will count the number of images for each of the difficulty levels
+        arr[:,0]=arr[:,0]+2                                     #increasing the number of rows by a fix 2. (We can comment out this line. Does not affect much)
         data_arr=[]
         exceptioncount=0
-        for i, subarr in enumerate(arr):
+        for i, subarr in enumerate(arr):                        #for each [row,col] in arr
 
             rows = int(round(subarr[0]))
             cols = int(round(subarr[1]))
 
             exceptcount=0
             while(True):
+                #This loop is to repeat and retry generating image if some an exception is encountered.
                 try:
+                    #initialize table class
                     table = Table(rows,cols,self.unlvimagespath,self.unlvocrpath,self.unlvtablepath)
 
+                    #get table of rows and cols based on unlv distribution and get features of this table
+                    #(same row, col and cell matrices, total unique ids, html conversion of table and its difficulty level)
                     same_cell_matrix,same_col_matrix,same_row_matrix, id_count, html_content,difficultylevel= table.create()
-                    #print('table creation time:',time.time()-start1)
 
-
+                    #convert this html code to image using selenium webdriver. Get equivalent bounding boxes
+                    #for each word in the table. This will generate ground truth for our problem
                     im,bboxes = html_to_img(driver, html_content, id_count, self.max_height, self.max_width)
-                    # apply_shear: bool - True: Apply Transformation, False: No Transformation
 
-                    #probability weight for shearing to be 25%
+                    # apply_shear: bool - True: Apply Transformation, False: No Transformation | probability weight for shearing to be 25%
                     apply_shear = random.choices([True, False],weights=[0.25,0.75])[0]
+
                     if(apply_shear==True):
+                        #randomly select shear and rotation levels
                         shearval = np.random.uniform(self.minshearval, self.maxshearval)
                         rotval = np.random.uniform(self.minrotval, self.maxrotval)
-                        #print('\nApplying shear:',' shearval:',shearval,' rotval:',rotval)
+
+                        #transform image and bounding boxes of the words
                         im, bboxes = Transform(im, bboxes, shearval, rotval, self.max_width, self.max_height)
+
                         if(shearval!=0.0 and rotval!=0.0):
+                            #If the image is transformed, then its difficulty level is 4
                             difficultylevel=4
 
                     if(self.writetoimg):
-                        dirname='level'+str(difficultylevel)
+                        #if the image and equivalent html is need to be stored
+                        self.create_dir('writetoimg')
+                        dirname=os.path.join('writetoimg/','level'+str(difficultylevel))
                         self.create_dir(dirname)
                         self.create_dir(os.path.join(dirname,'html'))
                         self.create_dir(os.path.join(dirname, 'img'))
@@ -175,29 +177,26 @@ class GenerateTFRecord:
                         f.close()
                         im.save(os.path.join(dirname,'img',str(i)+output_file_name.replace('.tfrecord','.png')), dpi=(600, 600))
 
-                    #print('difficultylevel:',difficultylevel)
-
-                    #print('html to img time:',time.time()-start2)
                     data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes,[difficultylevel]],[im]])
-
+                    all_difficulty_levels[difficultylevel-1]+=1
                     break
-                    #pickle.dump([same_row_matrix, same_col_matrix, same_cell_matrix, bboxes], infofile)
                 except Exception as e:
                     traceback.print_exc()
                     exceptcount+=1
                     if(exceptioncount>10):
+                        #if there are more than 10 exceptions, then return None
                         return None
                     #traceback.print_exc()
                     #print('\nException No.', exceptioncount, ' File: ', str(output_file_name))
                     #logging.error("Exception Occured "+str(output_file_name),exc_info=True)
         if(len(data_arr)!=N_imgs):
+            #If total number of images are not generated, then return None.
             print('Images not equal to the required size.')
             return None
-        return data_arr
+        return data_arr,all_difficulty_levels
 
-    def draw_col_matrix(self,im,arr,matrix):
-
-
+    def draw_matrix(self,im,arr,matrix):
+        '''Call this fucntion to draw visualizations of a matrix on image'''
         no_of_words=len(arr)
         colors = np.random.randint(0, 255, (no_of_words, 3))
         arr = arr[:, 2:]
@@ -206,19 +205,10 @@ class GenerateTFRecord:
         print('matrix shape:',matrix.shape)
         print('colors shape:', colors.shape)
         print('image shape:',im.shape)
-        print('matrix\n',matrix)
-
-
 
         im=im.astype(np.uint8)
         im=np.dstack((im,im,im))
-        #im=cv2.cvtColor(im,cv2.COLOR_GRAY2BGR)
-        # for x in range(no_of_words):
-        #     indices = np.argwhere(matrix[x] == 1)
-        #     for index in indices:
-        #         cv2.rectangle(im, (int(arr[index, 0]), int(arr[index, 1])),
-        #                       (int(arr[index, 2]), int(arr[index, 3])),
-        #                       (0,0,255), 1)
+
         x=1
         indices = np.argwhere(matrix[x] == 1)
         for index in indices:
@@ -234,10 +224,12 @@ class GenerateTFRecord:
                           (0, 0, 255), 1)
 
         #im=cv2.equalizeHist(im)
-        cv2.imwrite('hassan22.jpg',im)
+        cv2.imwrite('drawn_matrix.jpg',im)
+
 
 
     def write_tf(self,filesize,threadnum):
+        '''This function writes tfrecords. Input parameters are: filesize (number of images in one tfrecord), threadnum(thread id)'''
 
         options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
         opts = Options()
@@ -245,15 +237,17 @@ class GenerateTFRecord:
         assert opts.headless
         #driver=PhantomJS()
         driver = Firefox(options=opts)
+
         while(True):
             starttime = time.time()
 
+            #randomly select a name of length=20 for tfrecords file.
             output_file_name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=20)) + '.tfrecord'
             print('Thread: ',threadnum,' Started:', output_file_name)
 
-            data_arr = self.generate_tables(driver, filesize, output_file_name)
-            
-            #print('\nThread: ',threadnum,'data arr returned with :',len(data_arr))
+            #data_arr contains the images of generated tables and all_difficulty_levels contains the difficulty level of each of the table
+            data_arr,all_difficulty_levels = self.generate_tables(driver, filesize, output_file_name)
+
             if(data_arr is not None):
                 if(len(data_arr)==filesize):
                     with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
@@ -270,7 +264,7 @@ class GenerateTFRecord:
                                 seq_ex = self.generate_tf_record(img, cellmatrix, rowmatrix, colmatrix, bboxes,difficultylevel)
                                 writer.write(seq_ex.SerializeToString())
                             print('Thread :',threadnum,' Completed in ',time.time()-starttime,' ' ,output_file_name,'with len:',(len(data_arr)))
-
+                            print('level 1: ',all_difficulty_levels[0],', level 2: ',all_difficulty_levels[1],', level 3: ',all_difficulty_levels[2],', level 4: ',all_difficulty_levels[3])
                         except Exception as e:
                             traceback.print_exc()
                             self.logger.write(traceback.format_exc())
@@ -282,6 +276,8 @@ class GenerateTFRecord:
 
 
     def write_to_tf(self,max_threads):
+        '''This function starts tfrecords generation with number of threads = max_threads with each thread
+        working on a single tfrecord'''
 
         starttime=time.time()
         threads=[]
