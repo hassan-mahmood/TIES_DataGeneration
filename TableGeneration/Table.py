@@ -314,25 +314,25 @@ class Table:
                     all_cells.append(self.data_matrix[row,col])
         return self.create_same_matrix(all_cells,self.idcounter)
 
-    def select_difficulty_level(self):
+    def select_table_category(self):
         '''After random selection of different table types, border types, row or col spans, we need to
-        select the difficulty level of the table based on these factors:
+        select the category of the table based on these factors:
         1. spanflag
         2. tabletype
         3. bordertype
         '''
 
         #
-        difficultylevel=1
+        tablecategory=1
         if(self.spanflag==False):
             if(self.border_type==0):
-                difficultylevel=1
+                tablecategory=1
             else:
-                difficultylevel=2
+                tablecategory=2
         else:
-            difficultylevel=3
+            tablecategory=3
 
-        return difficultylevel
+        return tablecategory
 
 
     def create(self):
@@ -351,6 +351,6 @@ class Table:
         cells_matrix,cols_matrix,rows_matrix=self.create_same_cell_matrix(),\
                                              self.create_same_col_matrix(),\
                                              self.create_same_row_matrix()
-        difficultylevel=self.select_difficulty_level()                      #select difficulty level of the table
-        return cells_matrix,cols_matrix,rows_matrix,self.idcounter,html,difficultylevel
+        tablecategory=self.select_table_category()                    #select category of the table
+        return cells_matrix,cols_matrix,rows_matrix,self.idcounter,html,tablecategory
 
