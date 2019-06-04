@@ -21,7 +21,7 @@ We define border_categories with 4 possibilities:
 3. Borders only under headings
 4. Only internal borders
 
-All four of border categories are equally likely to be chosen randomly.
+These four of border categories have different probabilities to approximate to uniform distribution.
 
 '''
 
@@ -37,7 +37,7 @@ class Table:
         self.no_of_rows=no_of_rows
         self.no_of_cols=no_of_cols
         self.tables_categories = {'types': [0, 1], 'probs': [0.5, 0.5]}
-        self.borders_categories = {'types': [0, 1, 2, 3], 'probs': [0.25, 0.25, 0.25, 0.25]}
+        self.borders_categories = {'types': [0, 1, 2, 3], 'probs': [0.5, 0.15, 0.15, 0.2]}
         self.border_type = random.choices(self.borders_categories['types'], weights=self.borders_categories['probs'])[0]
         self.table_type = random.choices(self.tables_categories['types'], weights=self.tables_categories['probs'])[0]
         self.spanflag=False
@@ -314,25 +314,25 @@ class Table:
                     all_cells.append(self.data_matrix[row,col])
         return self.create_same_matrix(all_cells,self.idcounter)
 
-    def select_table_category(self):
+    def select_difficulty_level(self):
         '''After random selection of different table types, border types, row or col spans, we need to
-        select the category of the table based on these factors:
+        select the difficulty level of the table based on these factors:
         1. spanflag
         2. tabletype
         3. bordertype
         '''
 
         #
-        tablecategory=1
+        difficultylevel=1
         if(self.spanflag==False):
             if(self.border_type==0):
-                tablecategory=1
+                difficultylevel=1
             else:
-                tablecategory=2
+                difficultylevel=2
         else:
-            tablecategory=3
+            difficultylevel=3
 
-        return tablecategory
+        return difficultylevel
 
 
     def create(self):
@@ -351,6 +351,6 @@ class Table:
         cells_matrix,cols_matrix,rows_matrix=self.create_same_cell_matrix(),\
                                              self.create_same_col_matrix(),\
                                              self.create_same_row_matrix()
-        tablecategory=self.select_table_category()                    #select category of the table
-        return cells_matrix,cols_matrix,rows_matrix,self.idcounter,html,tablecategory
+        difficultylevel=self.select_difficulty_level()                      #select difficulty level of the table
+        return cells_matrix,cols_matrix,rows_matrix,self.idcounter,html,difficultylevel
 
