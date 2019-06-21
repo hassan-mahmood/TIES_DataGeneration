@@ -1,4 +1,22 @@
-# TIES Dataset Generation
+# TIES
+
+This is a repository containing data generation source code for the arxiv paper 1905.13391 ([link](https://arxiv.org/pdf/1905.13391.pdf)). This paper has been accepted into 
+ICDAR 2019. To cite the paper, use:
+
+```
+@article{rethinkingGraphs,
+  author    = {Qasim, Shah Rukh and Mahmood, Hassan and Shafait, Faisal},
+  title     = {Rethinking Table Parsing using Graph Neural Networks},
+  journal   = {Accepted into ICDAR 2019},
+  volume    = {abs/1905.13391},
+  year      = {2019},
+  url       = {https://arxiv.org/abs/1905.13391},
+  archivePrefix = {arXiv},
+  eprint    = {1905.13391},
+}
+```
+
+# Dataset Generation
 
 * TableGeneration: Contains functionality to generate tables
 * TFGeneration: Contains functionality to generate tfrecord files. It uses TableGeneration module to generate tables.
