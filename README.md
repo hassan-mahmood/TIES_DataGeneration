@@ -1,4 +1,4 @@
-# TIES
+# Rethinking Table Parsing using Graph Neural Networks
 
 This is a repository containing data generation source code for the arxiv paper 1905.13391 ([link](https://arxiv.org/pdf/1905.13391.pdf)). This paper has been accepted into 
 ICDAR 2019. To cite the paper, use:
