@@ -30,15 +30,14 @@ A table is generated in multiple steps like a lego building block(with each step
 1. The data types of columns are defined e.g. which column will contain alphabets, numbers or special character words
 2. Some cells are randomly selected for missing data
 3. Rows and Column spans are added to table
-4. A table is categorized into two ways(both categories are equally likely to be chosen):
+4. The table can be categorized into two ways based on headers(both categories are equally likely to be chosen):
     -   Table with regular headers(Table with only first row containing headers.)
     -   Table with irregular headers(Table with headers in first row and first column. This category can have multiple row spans for headers of first column.)
-5. Table borders are chosen randomly. We define border_categories with 4 possibilities and their probabilities:
-    -   All borders (P = 0.5)
-    -   No borders (P = 0.15)
-    -   Borders only under headings (P = 0.15)
-    -   Only internal borders (P= 0.2)
-   We chose those specific probabilities to maintain approximately uniform distribution for all the categories of the tables.
+5. Table borders are chosen randomly. We define border_categories with 4 possibilities(all four categories are equally likely to be chosen):
+    -   All borders
+    -   No borders
+    -   Borders only under headings
+    -   Only internal borders
 6. An equivalent HTML code is generated for this table.
 7. This HTML coded table is converted to image using selenium.
 6. Finally, shear and rotation transformations are applied to the table image.

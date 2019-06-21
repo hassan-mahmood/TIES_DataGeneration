@@ -4,15 +4,16 @@ from TableGeneration.Distribution import Distribution
 import time
 
 '''
-The code for generating 4 categories of tables is different than a simple "generate 4 categories" approach.
+The code for generating 4 categories of tables consists of several small pieces e.g. types of borders, 
+irregular/regular headers and transformations.
 
-We define table_categories which has two possiblities: 
-1. Tables with regular headers
-2. Tables with irregular headers
+We define header_categories which has two possiblities: 
+1. Regular headers
+2. Irregular headers
 
-Both of table categories are equally likely to be chosen randomly.
+Both of header categories are equally likely to be chosen randomly.
 
-Regular Headers: Only first row containing headers
+Regular Headers: Tables with only first row containing headers
 Irregular Headers: Tables which have headings on first column of each row.
 
 We define border_categories with 4 possibilities: 
@@ -21,25 +22,38 @@ We define border_categories with 4 possibilities:
 3. Borders only under headings
 4. Only internal borders
 
-These four of border categories have different probabilities to approximate to uniform distribution.
+Border category 1 is fixed for tables of category 1 and there is no other option while for the rest of categories,
+the table border can be of any 4 categories. Therefore, we randomly select a border category with equal probability
+for all 4.
 
 '''
 
 class Table:
 
-    def __init__(self,no_of_rows,no_of_cols,images_path,ocr_path,gt_table_path):
+    def __init__(self,no_of_rows,no_of_cols,images_path,ocr_path,gt_table_path,assigned_category):
 
         #get distribution of data
         self.distribution=Distribution(images_path,ocr_path,gt_table_path)
 
         self.all_words,self.all_numbers,self.all_others=self.distribution.get_distribution()
 
+        self.assigned_category=assigned_category
+
         self.no_of_rows=no_of_rows
         self.no_of_cols=no_of_cols
-        self.tables_categories = {'types': [0, 1], 'probs': [0.5, 0.5]}
-        self.borders_categories = {'types': [0, 1, 2, 3], 'probs': [0.5, 0.15, 0.15, 0.2]}
-        self.border_type = random.choices(self.borders_categories['types'], weights=self.borders_categories['probs'])[0]
-        self.table_type = random.choices(self.tables_categories['types'], weights=self.tables_categories['probs'])[0]
+        self.header_categories = {'types': [0, 1], 'probs': [0.5, 0.5]}
+        self.header_cat = random.choices(self.header_categories['types'], weights=self.header_categories['probs'])[0]
+
+        if(self.assigned_category==1):
+            self.border_cat=0
+        elif(self.assigned_category==2):
+            self.border_cat=1
+        elif(self.assigned_category==3):
+            self.border_cat=2
+        else:
+            self.borders_categories = {'types': [0,1, 2, 3], 'probs': [0.25,0.25, 0.25, 0.25]}
+            self.border_cat = random.choices(self.borders_categories['types'], weights=self.borders_categories['probs'])[0]
+        
         self.spanflag=False
 
         self.idcounter=0
@@ -66,7 +80,7 @@ class Table:
         matrix holds the list of word ids in each cell of the table'''
         self.data_matrix = np.empty(shape=(self.no_of_rows,self.no_of_cols),dtype=object)
 
-
+        
 
     def get_log_value(self):
         ''' returns log base 2 (x)'''
@@ -108,7 +122,6 @@ class Table:
         '''Depending on the data type of column, this function returns a randomly selected string (words or numbers)
         from unlv dataset and unique id assigned to Each word or number in the string.
         '''
-
         html=''
         ids=[]
         if(type=='n'):
@@ -130,7 +143,6 @@ class Table:
         '''Spans indices. Can be used for row or col span
         Span indices store the starting indices of row or col spans while span_lengths will store
         the length of span (in terms of cells) starting from start index.'''
-
         span_indices = []
         span_lengths = []
         span_count = random.randint(1, 3)
@@ -159,7 +171,10 @@ class Table:
 
     def make_header_col_spans(self):
         '''This function spans header cells'''
-        header_span_indices, header_span_lengths = self.agnostic_span_indices(self.no_of_cols)
+        while(True):                                        #iterate until we get some row or col span indices
+            header_span_indices, header_span_lengths = self.agnostic_span_indices(self.no_of_cols)
+            if(len(header_span_indices)!=0 and len(header_span_lengths)!=0):
+                break
 
         row_span_indices=[]
         for index,length in zip(header_span_indices,header_span_lengths):
@@ -173,7 +188,7 @@ class Table:
         self.row_spans_matrix[1,b]=-1
 
         #If the table has irregular headers, then we can span some of the rows in those header cells
-        if(self.table_type==1):
+        if(self.header_cat==1):
             self.create_irregular_header()
 
 
@@ -216,11 +231,11 @@ class Table:
 
         style += """border-collapse:collapse;}td,th{padding:6px;padding-left: 15px;padding-right: 15px;"""
 
-        if(self.border_type==0):
+        if(self.border_cat==0):
             style += """ border:1px solid black;} """
-        elif(self.border_type==2):
+        elif(self.border_cat==2):
             style += """border-bottom:1px solid black;}"""
-        elif(self.border_type==3):
+        elif(self.border_cat==3):
             style+="""border-left: 1px solid black;}
                        th{border-bottom: 1px solid black;} table tr td:first-child, 
                        table tr th:first-child {border-left: 0;}"""
@@ -314,33 +329,37 @@ class Table:
                     all_cells.append(self.data_matrix[row,col])
         return self.create_same_matrix(all_cells,self.idcounter)
 
-    def select_difficulty_level(self):
-        '''After random selection of different table types, border types, row or col spans, we need to
-        select the difficulty level of the table based on these factors:
+    def select_table_category(self):
+        '''This function is to make sure that the category of generated table is same as required
+        based on selection of table types, border types, row or col spans:
         1. spanflag
         2. tabletype
         3. bordertype
         '''
-
         #
-        difficultylevel=1
+        tablecategory=1
         if(self.spanflag==False):
-            if(self.border_type==0):
-                difficultylevel=1
+            if(self.border_cat==0):
+                tablecategory=1
             else:
-                difficultylevel=2
+                tablecategory=2
         else:
-            difficultylevel=3
+            tablecategory=3
 
-        return difficultylevel
+        return tablecategory
 
 
     def create(self):
         '''This will create the complete table'''
-
         self.define_col_types()                                             #define the data types for each column
         self.generate_missing_cells()                                       #generate missing cells
-        local_span_flag=random.choices([True,False],weights=[0.5,0.5])[0]   #randomly choose if to span columns and rows for headers or not
+
+
+        local_span_flag=False                                               #no span initially
+        if(self.assigned_category==3):                                      #if assigned category is 3, then it should have spanned rows or columns
+            local_span_flag=True
+        elif(self.assigned_category==4):                                    #if assigned category is 4, spanning/not spanning doesn't matter
+            local_span_flag=random.choices([True,False],weights=[0.5,0.5])[0]   #randomly choose if to span columns and rows for headers or not
         #local_span_flag=True
         if(local_span_flag):
             self.make_header_col_spans()
@@ -351,6 +370,6 @@ class Table:
         cells_matrix,cols_matrix,rows_matrix=self.create_same_cell_matrix(),\
                                              self.create_same_col_matrix(),\
                                              self.create_same_row_matrix()
-        difficultylevel=self.select_difficulty_level()                      #select difficulty level of the table
-        return cells_matrix,cols_matrix,rows_matrix,self.idcounter,html,difficultylevel
+        tablecategory=self.select_table_category()                      #select table category of the table
+        return cells_matrix,cols_matrix,rows_matrix,self.idcounter,html,tablecategory
 

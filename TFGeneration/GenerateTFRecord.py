@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore")
+
 import tensorflow as tf
 import numpy as np
 import traceback
@@ -56,7 +59,18 @@ class GenerateTFRecord:
         self.num_data_dims=5                            #data dimensions to store in tfrecord
         self.max_height=768                             #max image height
         self.max_width=1366                             #max image width
+        self.tables_cat_dist = self.get_category_distribution(self.filesize)
 
+    def get_category_distribution(self,filesize):
+        tables_cat_dist=[0,0,0,0]
+        firstdiv=filesize//2
+        tables_cat_dist[0]=firstdiv//2
+        tables_cat_dist[1]=firstdiv-tables_cat_dist[0]
+
+        seconddiv=filesize-firstdiv
+        tables_cat_dist[2]=seconddiv//2
+        tables_cat_dist[3]=seconddiv-tables_cat_dist[2]
+        return tables_cat_dist
 
     def create_dir(self,fpath):                         #creates directory fpath if it does not exist
         if(not os.path.exists(fpath)):
@@ -125,70 +139,78 @@ class GenerateTFRecord:
 
         row_col_min=[self.row_min,self.col_min]                 #to randomly select number of rows
         row_col_max=[self.row_max,self.col_max]                 #to randomly select number of columns
-        arr = np.random.uniform(low=row_col_min, high=row_col_max, size=(N_imgs, 2))        #random row and col selection for N images
+        rc_arr = np.random.uniform(low=row_col_min, high=row_col_max, size=(N_imgs, 2))        #random row and col selection for N images
         all_table_categories=[0,0,0,0]                         #These 4 values will count the number of images for each of the category
-        arr[:,0]=arr[:,0]+2                                     #increasing the number of rows by a fix 2. (We can comment out this line. Does not affect much)
+        rc_arr[:,0]=rc_arr[:,0]+2                                     #increasing the number of rows by a fix 2. (We can comment out this line. Does not affect much)
         data_arr=[]
         exceptioncount=0
-        for i, subarr in enumerate(arr):                        #for each [row,col] in arr
 
-            rows = int(round(subarr[0]))
-            cols = int(round(subarr[1]))
+        rc_count=0                                              #for iterating through row and col array
+        for assigned_category,cat_count in enumerate(self.tables_cat_dist):
+            for _ in range(cat_count):
+                rows = int(round(rc_arr[rc_count][0]))
+                cols = int(round(rc_arr[rc_count][1]))
+            
+                exceptcount=0
+                while(True):
+                    #This loop is to repeat and retry generating image if some an exception is encountered.
+                    try:
+                        #initialize table class
+                        table = Table(rows,cols,self.unlvimagespath,self.unlvocrpath,self.unlvtablepath,assigned_category+1)
+                        #get table of rows and cols based on unlv distribution and get features of this table
+                        #(same row, col and cell matrices, total unique ids, html conversion of table and its category)
+                        same_cell_matrix,same_col_matrix,same_row_matrix, id_count, html_content,tablecategory= table.create()
 
-            exceptcount=0
-            while(True):
-                #This loop is to repeat and retry generating image if some an exception is encountered.
-                try:
-                    #initialize table class
-                    table = Table(rows,cols,self.unlvimagespath,self.unlvocrpath,self.unlvtablepath)
+                        #convert this html code to image using selenium webdriver. Get equivalent bounding boxes
+                        #for each word in the table. This will generate ground truth for our problem
+                        im,bboxes = html_to_img(driver, html_content, id_count, self.max_height, self.max_width)
 
-                    #get table of rows and cols based on unlv distribution and get features of this table
-                    #(same row, col and cell matrices, total unique ids, html conversion of table and its category)
-                    same_cell_matrix,same_col_matrix,same_row_matrix, id_count, html_content,tablecategory= table.create()
-
-                    #convert this html code to image using selenium webdriver. Get equivalent bounding boxes
-                    #for each word in the table. This will generate ground truth for our problem
-                    im,bboxes = html_to_img(driver, html_content, id_count, self.max_height, self.max_width)
-
-                    # apply_shear: bool - True: Apply Transformation, False: No Transformation | probability weight for shearing to be 25%
-                    apply_shear = random.choices([True, False],weights=[0.25,0.75])[0]
-
-                    if(apply_shear==True):
-                        #randomly select shear and rotation levels
-                        shearval = np.random.uniform(self.minshearval, self.maxshearval)
-                        rotval = np.random.uniform(self.minrotval, self.maxrotval)
-
-                        #transform image and bounding boxes of the words
-                        im, bboxes = Transform(im, bboxes, shearval, rotval, self.max_width, self.max_height)
-
-                        if(shearval!=0.0 and rotval!=0.0):
+                        # apply_shear: bool - True: Apply Transformation, False: No Transformation | probability weight for shearing to be 25%
+                        #apply_shear = random.choices([True, False],weights=[0.25,0.75])[0]
+                        
+                        #if(apply_shear==True):
+                        if(assigned_category+1==4):
+                            #randomly select shear and rotation levels
+                            while(True):
+                                shearval = np.random.uniform(self.minshearval, self.maxshearval)
+                                rotval = np.random.uniform(self.minrotval, self.maxrotval)
+                                if(shearval!=0.0 or rotval!=0.0):
+                                    break
                             #If the image is transformed, then its categorycategory is 4
+
+                            #transform image and bounding boxes of the words
+                            im, bboxes = Transform(im, bboxes, shearval, rotval, self.max_width, self.max_height)
                             tablecategory=4
+                                
+                                
 
-                    if(self.writetoimg):
-                        #if the image and equivalent html is need to be stored
-                        self.create_dir('writetoimg')
-                        dirname=os.path.join('writetoimg/','category'+str(tablecategory))
-                        self.create_dir(dirname)
-                        self.create_dir(os.path.join(dirname,'html'))
-                        self.create_dir(os.path.join(dirname, 'img'))
-                        f=open(os.path.join(dirname,'html',str(i)+output_file_name.replace('.tfrecord','.html')),'w')
-                        f.write(html_content)
-                        f.close()
-                        im.save(os.path.join(dirname,'img',str(i)+output_file_name.replace('.tfrecord','.png')), dpi=(600, 600))
+                        if(self.writetoimg):
+                            #if the image and equivalent html is need to be stored
+                            self.create_dir('writetoimg')
+                            dirname=os.path.join('writetoimg/','category'+str(tablecategory))
+                            self.create_dir(dirname)
+                            self.create_dir(os.path.join(dirname,'html'))
+                            self.create_dir(os.path.join(dirname, 'img'))
+                            f=open(os.path.join(dirname,'html',str(rc_count)+output_file_name.replace('.tfrecord','.html')),'w')
+                            f.write(html_content)
+                            f.close()
+                            im.save(os.path.join(dirname,'img',str(rc_count)+output_file_name.replace('.tfrecord','.png')), dpi=(600, 600))
 
-                    data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes,[tablecategory]],[im]])
-                    all_table_categories[tablecategory-1]+=1
-                    break
-                except Exception as e:
-                    traceback.print_exc()
-                    exceptcount+=1
-                    if(exceptioncount>10):
-                        #if there are more than 10 exceptions, then return None
-                        return None
-                    #traceback.print_exc()
-                    #print('\nException No.', exceptioncount, ' File: ', str(output_file_name))
-                    #logging.error("Exception Occured "+str(output_file_name),exc_info=True)
+                        data_arr.append([[same_row_matrix, same_col_matrix, same_cell_matrix, bboxes,[tablecategory]],[im]])
+                        all_table_categories[tablecategory-1]+=1
+                        print('Assigned category: ',assigned_category+1,', generated category: ',tablecategory)
+                        break
+                    except Exception as e:
+                        traceback.print_exc()
+                        exceptcount+=1
+                        if(exceptioncount>10):
+                            print('More than 10 exceptions occured for file: ',output_file_name)
+                            #if there are more than 10 exceptions, then return None
+                            return None
+                        #traceback.print_exc()
+                        #print('\nException No.', exceptioncount, ' File: ', str(output_file_name))
+                        #logging.error("Exception Occured "+str(output_file_name),exc_info=True)
+                rc_count+=1
         if(len(data_arr)!=N_imgs):
             #If total number of images are not generated, then return None.
             print('Images not equal to the required size.')
@@ -231,7 +253,7 @@ class GenerateTFRecord:
     def write_tf(self,filesize,threadnum):
         '''This function writes tfrecords. Input parameters are: filesize (number of images in one tfrecord), threadnum(thread id)'''
 
-        options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
+        options = tf.compat.v1.io.TFRecordOptions(tf.compat.v1.io.TFRecordCompressionType.GZIP)
         opts = Options()
         opts.set_headless()
         assert opts.headless
@@ -250,7 +272,7 @@ class GenerateTFRecord:
 
             if(data_arr is not None):
                 if(len(data_arr)==filesize):
-                    with tf.python_io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
+                    with tf.io.TFRecordWriter(os.path.join(self.outtfpath,output_file_name),options=options) as writer:
                         try:
                             for subarr in data_arr:
                                 arr=subarr[0]
@@ -266,7 +288,8 @@ class GenerateTFRecord:
                             print('Thread :',threadnum,' Completed in ',time.time()-starttime,' ' ,output_file_name,'with len:',(len(data_arr)))
                             print('category 1: ',all_table_categories[0],', category 2: ',all_table_categories[1],', category 3: ',all_table_categories[2],', category 4: ',all_table_categories[3])
                         except Exception as e:
-                            traceback.print_exc()
+                            print('Exception occurred in write_tf function for file: ',output_file_name)
+                            #traceback.print_exc()
                             self.logger.write(traceback.format_exc())
                             # print('Thread :',threadnum,' Removing',output_file_name)
                             # os.remove(os.path.join(self.outtfpath,output_file_name))

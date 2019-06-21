@@ -16,9 +16,16 @@ parser.add_argument('--writetoimg',type=int,default=0)              #if True, wi
 
 args=parser.parse_args()
 
+filesize=max(int(args.filesize),4)
 writetoimg=False
 if(args.writetoimg==1):
     writetoimg=True
-t = GenerateTFRecord(args.outpath,args.filesize,args.imagespath,
+t = GenerateTFRecord(args.outpath,filesize,args.imagespath,
                      args.ocrpath,args.tablepath,writetoimg)
 t.write_to_tf(args.threads)
+
+
+
+
+
+
