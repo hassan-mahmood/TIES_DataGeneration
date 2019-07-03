@@ -233,15 +233,15 @@ class GenerateTFRecord:
             x=1
             indices = np.argwhere(matrix[x] == 1)
             for index in indices:
-                cv2.rectangle(im, (int(arr[index, 0]), int(arr[index, 1])),
-                              (int(arr[index, 2]), int(arr[index, 3])),
+                cv2.rectangle(im, (int(arr[index, 0])-3, int(arr[index, 1])-3),
+                              (int(arr[index, 2])+3, int(arr[index, 3])+3),
                               (0,255,0), 1)
 
             x = 4
             indices = np.argwhere(matrix[x] == 1)
             for index in indices:
-                cv2.rectangle(im, (int(arr[index, 0]), int(arr[index, 1])),
-                              (int(arr[index, 2]), int(arr[index, 3])),
+                cv2.rectangle(im, (int(arr[index, 0])-3, int(arr[index, 1])-3),
+                              (int(arr[index, 2])+3, int(arr[index, 3])+3),
                               (0, 0, 255), 1)
 
             img_name=os.path.join('bboxes/',output_file_name+'_'+str(imgindex)+'_'+matname+'.jpg')
