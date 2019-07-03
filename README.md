@@ -26,14 +26,15 @@ ICDAR 2019. To cite the paper, use:
 ## How to run
 Use the following command to generate tfrecords:
 
-python generate_data.py --filesize num_of_images_per_tfrecord --threads num_of_threads --outpath output_directory_to_store_tfrecords --imagespath path_to_UNLV_images --ocrpath path_to_OCR_groundtruth_UNLV --tablepath path_to_UNLV_tables_ground_truths --writetoimg 0_or_1
+python generate_data.py --filesize num_of_images_per_tfrecord --threads num_of_threads --outpath output_directory_to_store_tfrecords --imagespath path_to_UNLV_images --ocrpath path_to_OCR_groundtruth_UNLV --tablepath path_to_UNLV_tables_ground_truths --visualizeimgs 0_or_1 --visualizebboxes 0_or_1
 
 
 where,
 num_of_images_per_tfrecord: Number of images to store in one tfrecord
 num_of_threads: Threads are used to process files in parallel. A single thread generates one single tfrecord file. So 10 threads will generate 10 tfrecord files in parallel.
 outpath: Output directory to store generated tfrecords
-writetoimg: If writetoimg=1, the generated images will be stored (other than tfrecords) else not.
+visualizeimgs: If visualizeimgs=1, the generated images will be stored (along than tfrecords).
+visualizebboxes: If visualizebboxes=1, the bounding boxes will be draw to images and those images will be stored separately.
 
 imagespath: Directory containing UNLV dataset images
 ocrpath: Directory containing ground truths of characters in UNLV dataset

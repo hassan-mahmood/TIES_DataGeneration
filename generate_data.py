@@ -12,16 +12,21 @@ parser.add_argument('--imagespath',default='../Table_Detection_Dataset/unlv/trai
 parser.add_argument('--ocrpath',default='../Table_Detection_Dataset/unlv/unlv_xml_ocr')
 parser.add_argument('--tablepath',default='../Table_Detection_Dataset/unlv/unlv _xml_gt')
 
-parser.add_argument('--writetoimg',type=int,default=0)              #if True, will store the images along with tfrecords
-
+parser.add_argument('--visualizeimgs',type=int,default=0)              #if 1, will store the images along with tfrecords
+parser.add_argument('--visualizebboxes',type=int,default=0)			#if 1, will store the bbox visualizations in visualizations folder
 args=parser.parse_args()
 
 filesize=max(int(args.filesize),4)
-writetoimg=False
-if(args.writetoimg==1):
-    writetoimg=True
+visualizeimgs=False
+if(args.visualizeimgs==1):
+    visualizeimgs=True
+
+visualizebboxes=False
+if(args.visualizebboxes==1):
+	visualizebboxes=True
+
 t = GenerateTFRecord(args.outpath,filesize,args.imagespath,
-                     args.ocrpath,args.tablepath,writetoimg)
+                     args.ocrpath,args.tablepath,visualizeimgs,visualizebboxes)
 t.write_to_tf(args.threads)
 
 
