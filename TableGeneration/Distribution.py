@@ -7,7 +7,7 @@ import pickle
 
 class Distribution:
     '''This class extracts the distribution of text, numbers and others(containing special characters) from unlv dataset'''
-    def __init__(self,images_path,ocr_path,table_path):
+    def __init__(self,images_path,ocr_path,table_path,picklefilename):
         self.images_path=images_path
         self.ocr_path=ocr_path
         self.table_path=table_path
@@ -16,7 +16,7 @@ class Distribution:
         self.all_words = []
         self.all_numbers = []
         self.all_others = []
-        self.pickle_filename='unlv_distribution'
+        self.pickle_filename=picklefilename
 
     def load_from_pickle(self):
         file=open(self.pickle_filename,'rb')

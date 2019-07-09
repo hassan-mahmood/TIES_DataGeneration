@@ -30,10 +30,10 @@ for all 4.
 
 class Table:
 
-    def __init__(self,no_of_rows,no_of_cols,images_path,ocr_path,gt_table_path,assigned_category):
+    def __init__(self,no_of_rows,no_of_cols,images_path,ocr_path,gt_table_path,assigned_category,distributionfile):
 
         #get distribution of data
-        self.distribution=Distribution(images_path,ocr_path,gt_table_path)
+        self.distribution=Distribution(images_path,ocr_path,gt_table_path,distributionfile)
 
         self.all_words,self.all_numbers,self.all_others=self.distribution.get_distribution()
 

@@ -23,6 +23,8 @@ ICDAR 2019. To cite the paper, use:
 * generate_data: Main script to start dataset generation
 * unlv_distribution: a binary file that contains words distribution of UNLV dataset (types of words: numbers, alphabets and words containing special characters)
 
+
+
 ## How to run
 Use the following command to generate tfrecords:
 
@@ -40,10 +42,14 @@ imagespath: Directory containing UNLV dataset images
 ocrpath: Directory containing ground truths of characters in UNLV dataset
 tablepath: Directory containing ground truths of tables in UNLV dataset
 
+You can download UNLV dataset from this link:
+https://drive.google.com/drive/folders/1yES8Se8pyGsvLt92dJFz7z7AJQHjt4GA?usp=sharing 
 
 ## Table Generation:
 
-All of the content used in generated tables is extracted from UNLV dataset. We also extracted the distribution of alphabetical words, numbers and special character words from it and used same distribution for our dataset. Based on the distribution of words, we generated tables of 4 categories(as mentioned in the paper). The code for generating 4 categories of tables is different than a simple "generate 4 categories" approach.
+All of the content used in generated tables is extracted from UNLV dataset. We also extracted the distribution of alphabetical words, numbers and special character words from it and used same distribution for our dataset. 
+
+Based on the distribution of words, we generated tables of 4 categories(as mentioned in the paper). The code for generating 4 categories of tables is different than a simple "generate 4 categories" approach.
 
 A table is generated in multiple steps like a lego building block(with each step contributing to generation of table):
 1. The data types of columns are defined e.g. which column will contain alphabets, numbers or special character words

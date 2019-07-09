@@ -29,18 +29,19 @@ class Logger:
         #self.file=open('logtxt.txt','a+')
 
     def write(self,txt):
-        file = open('logtxt.txt', 'a+')
+        file = open('logfile.txt', 'a+')
         file.write(txt)
         file.close()
 
 class GenerateTFRecord:
-    def __init__(self, outpath,filesize,unlvimagespath,unlvocrpath,unlvtablepath,visualizeimgs,visualizebboxes):
+    def __init__(self, outpath,filesize,unlvimagespath,unlvocrpath,unlvtablepath,visualizeimgs,visualizebboxes,distributionfilepath):
         self.outtfpath = outpath                        #directory to store tfrecords
         self.filesize=filesize                          #number of images in each tfrecord
         self.unlvocrpath=unlvocrpath                    #unlv ocr ground truth files
         self.unlvimagespath=unlvimagespath              #unlv images
         self.unlvtablepath=unlvtablepath                #unlv ground truth of tabls
-        self.visualizeimgs=visualizeimgs                      #wheter to store images separately or not
+        self.visualizeimgs=visualizeimgs                #wheter to store images separately or not
+        self.distributionfile=distributionfilepath      #pickle file containing UNLV distribution
         self.logger=Logger()                            #if we want to use logger and store output to file
         #self.logdir = 'logdir/'
         #self.create_dir(self.logdir)
@@ -157,14 +158,14 @@ class GenerateTFRecord:
                     #This loop is to repeat and retry generating image if some an exception is encountered.
                     try:
                         #initialize table class
-                        table = Table(rows,cols,self.unlvimagespath,self.unlvocrpath,self.unlvtablepath,assigned_category+1)
+                        table = Table(rows,cols,self.unlvimagespath,self.unlvocrpath,self.unlvtablepath,assigned_category+1,self.distributionfile)
                         #get table of rows and cols based on unlv distribution and get features of this table
                         #(same row, col and cell matrices, total unique ids, html conversion of table and its category)
                         same_cell_matrix,same_col_matrix,same_row_matrix, id_count, html_content,tablecategory= table.create()
 
                         #convert this html code to image using selenium webdriver. Get equivalent bounding boxes
                         #for each word in the table. This will generate ground truth for our problem
-                        im,bboxes = html_to_img(driver, html_content, id_count, self.max_height, self.max_width)
+                        im,bboxes = html_to_img(driver, html_content, id_count)
 
                         # apply_shear: bool - True: Apply Transformation, False: No Transformation | probability weight for shearing to be 25%
                         #apply_shear = random.choices([True, False],weights=[0.25,0.75])[0]
@@ -298,6 +299,14 @@ class GenerateTFRecord:
     def write_to_tf(self,max_threads):
         '''This function starts tfrecords generation with number of threads = max_threads with each thread
         working on a single tfrecord'''
+        
+        if(not os.path.exists(self.distributionfile)):
+            if((not os.path.exists(self.unlvtablepath)) or (not os.path.exists(self.unlvimagespath)) or (not os.path.exists(self.unlvocrpath))):
+                print('UNLV dataset folders do not exist.')
+                return
+            
+
+
         #create all directories here
 
         if(self.visualizeimgs):
@@ -307,6 +316,8 @@ class GenerateTFRecord:
                 self.create_dir(dirname)
                 self.create_dir(os.path.join(dirname,'html'))
                 self.create_dir(os.path.join(dirname, 'img'))
+
+
 
         if(self.visualizebboxes):
             self.create_dir('bboxes')
