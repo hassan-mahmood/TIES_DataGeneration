@@ -305,10 +305,7 @@ class GenerateTFRecord:
                 print('UNLV dataset folders do not exist.')
                 return
             
-
-
         #create all directories here
-
         if(self.visualizeimgs):
             self.create_dir('visualizeimgs')
             for tablecategory in range(1,5):
